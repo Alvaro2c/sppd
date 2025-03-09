@@ -28,6 +28,5 @@ mappings = {
     "tr_tax_exclusive_amount": "TenderResult.AwardedTenderedProject.LegalMonetaryTotal.TaxExclusiveAmount",
     "tr_payable_amount": "TenderResult.AwardedTenderedProject.LegalMonetaryTotal.PayableAmount",
     "tr_sme_awarded_indicator": "TenderResult.SMEAwardedIndicator",
-    "tr_award_date": "TenderResult.AwardDate"
-
+    "tr_award_date": "TenderResult.AwardDate",
 }

@@ -26,14 +26,19 @@ def get_soup(url: str) -> BeautifulSoup:
 
     return BeautifulSoup(response.text, "html.parser")
 
+
 def get_source_data():
     """
     Get the source data from the url and return a dict with the period as key and the link to the data as value.
     """
-    source_url = 'https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx'
+    source_url = "https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx"
     soup = get_soup(source_url)
 
-    links = [a.get('href') for a in soup.find_all('a') if 'contratacion' in a.get('href') and a.get('href').endswith('zip')]
+    links = [
+        a.get("href")
+        for a in soup.find_all("a")
+        if "contratacion" in a.get("href") and a.get("href").endswith("zip")
+    ]
     periods = [link[113:-4] for link in links]
     source_data = {p: l for p, l in zip(periods, links)}
 
@@ -196,10 +201,10 @@ def download_and_extract_zip(source_data: dict, period: str):
     period (int): The selected period for which the data needs to be downloaded.
     """
     if period not in source_data.keys():
-        raise ValueError(f'The period {period} is not available in the source data.')
+        raise ValueError(f"The period {period} is not available in the source data.")
     else:
         zip_url = source_data[period]
-        folder = os.path.join(os.path.dirname(os.path.abspath('')), 'data', period)
+        folder = os.path.join(os.path.dirname(os.path.abspath("")), "data", period)
         response = requests.get(zip_url)
         with zipfile.ZipFile(io.BytesIO(response.content)) as thezip:
             thezip.extractall(folder)
@@ -216,7 +221,7 @@ def get_folder_path(period: str):
     Returns:
     str: The path to the folder where the data is downloaded.
     """
-    folder = os.path.join(os.path.dirname(os.path.abspath('')), 'data', period)
+    folder = os.path.join(os.path.dirname(os.path.abspath("")), "data", period)
 
     return folder
 
@@ -260,6 +265,7 @@ def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
 
     return final_df
 
+
 def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     """
     Removes duplicates from a dataframe based on the 'id' and 'title' columns.
@@ -274,11 +280,13 @@ def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     no_dups_df = df.copy()
-    no_dups_df['updated'] = pd.to_datetime(no_dups_df['updated'])
+    no_dups_df["updated"] = pd.to_datetime(no_dups_df["updated"])
 
-    no_dups_df = no_dups_df.sort_values(by=['id', 'title', 'updated'], ascending=[True, True, False])
+    no_dups_df = no_dups_df.sort_values(
+        by=["id", "title", "updated"], ascending=[True, True, False]
+    )
 
-    no_dups_df = no_dups_df.drop_duplicates(subset=['id', 'title'], keep='first')
+    no_dups_df = no_dups_df.drop_duplicates(subset=["id", "title"], keep="first")
 
     no_dups_df.reset_index(drop=True, inplace=True)
 
