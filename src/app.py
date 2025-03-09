@@ -1,4 +1,5 @@
 import streamlit as st
+import src.utils.mappings as mappings
 
 
 def main():
@@ -8,6 +9,8 @@ def main():
     name = st.text_input("Enter your name:")
     if name:
         st.write(f"Hello, {name}!")
+        st.write("Here are some mappings:")
+        st.write(mappings)
 
 
 if __name__ == "__main__":
