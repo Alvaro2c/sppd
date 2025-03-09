@@ -19,7 +19,7 @@ def get_soup(url: str) -> BeautifulSoup:
     """
     response = requests.get(url)
 
-    return BeautifulSoup(response.text, 'html.parser')
+    return BeautifulSoup(response.text, "html.parser")
 
 
 def recursive_field_dict(field, field_dict: dict):
@@ -34,7 +34,7 @@ def recursive_field_dict(field, field_dict: dict):
         None: The function modifies the field_dict in place to replicate the XML tree structure.
     """
     for child in field:
-        tag = child.tag.split('}')[-1]
+        tag = child.tag.split("}")[-1]
         if len(child) == 0:
             field_dict[tag] = child.text
         else:
@@ -67,7 +67,7 @@ def recursive_find_value(tag: str, dictionary: dict) -> tuple:
                     pass
 
 
-def flatten_dict(d: dict, parent_key='', sep='.') -> dict:
+def flatten_dict(d: dict, parent_key="", sep=".") -> dict:
     """
     Flattens a nested dictionary by concatenating keys with a specified separator.
 
@@ -109,8 +109,8 @@ def get_atom_data(xml_file) -> tuple:
     """
     tree = ET.parse(xml_file)
     root = tree.getroot()
-    ns = {node[0]: node[1] for _, node in ET.iterparse(xml_file, events=['start-ns'])}
-    atom = "{" + ns[''] + "}"
+    ns = {node[0]: node[1] for _, node in ET.iterparse(xml_file, events=["start-ns"])}
+    atom = "{" + ns[""] + "}"
 
     for k, v in ns.items():
         try:
@@ -118,7 +118,7 @@ def get_atom_data(xml_file) -> tuple:
         except ValueError:
             pass
 
-    entries = root.findall(f'{atom}entry')
+    entries = root.findall(f"{atom}entry")
 
     return ns, atom, entries
 
@@ -143,11 +143,11 @@ def get_main_df(entries: list, ns: dict, mapping: dict) -> pd.DataFrame:
 
         # Extract general information
         for field in entry:
-            tag = field.tag.split('}')[-1]
-            entry_data[tag] = field.text if tag != 'link' else field.get('href')
+            tag = field.tag.split("}")[-1]
+            entry_data[tag] = field.text if tag != "link" else field.get("href")
 
         # Generate full details information
-        details = entry.find('cac-place-ext:ContractFolderStatus', ns)
+        details = entry.find("cac-place-ext:ContractFolderStatus", ns)
         details_dict = {}
         recursive_field_dict(details, details_dict)
         flat_details = flatten_dict(details_dict)
@@ -159,8 +159,8 @@ def get_main_df(entries: list, ns: dict, mapping: dict) -> pd.DataFrame:
             except TypeError:
                 entry_data[k] = None
 
-        entry_data.pop('summary')
-        entry_data.pop('ContractFolderStatus')
+        entry_data.pop("summary")
+        entry_data.pop("ContractFolderStatus")
 
         data.append(entry_data)
 
