@@ -6,6 +6,11 @@ import requests
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 
+# local file handling
+import zipfile
+import io
+import os
+
 
 def get_soup(url: str) -> BeautifulSoup:
     """
@@ -20,6 +25,19 @@ def get_soup(url: str) -> BeautifulSoup:
     response = requests.get(url)
 
     return BeautifulSoup(response.text, "html.parser")
+
+def get_source_data():
+    """
+    Get the source data from the url and return a dict with the period as key and the link to the data as value.
+    """
+    source_url = 'https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx'
+    soup = get_soup(source_url)
+
+    links = [a.get('href') for a in soup.find_all('a') if 'contratacion' in a.get('href') and a.get('href').endswith('zip')]
+    periods = [link[113:-4] for link in links]
+    source_data = {p: l for p, l in zip(periods, links)}
+
+    return source_data
 
 
 def recursive_field_dict(field, field_dict: dict):
@@ -103,9 +121,8 @@ def get_atom_data(xml_file) -> tuple:
 
     Returns:
         tuple: A tuple containing:
-            - ns (dict): A dictionary of namespaces with their prefixes.
-            - atom (str): The default namespace URI enclosed in curly braces.
             - entries (list): A list of XML elements found under the 'entry' tag in the default namespace.
+            - atom (str): The default namespace URI enclosed in curly braces.
     """
     tree = ET.parse(xml_file)
     root = tree.getroot()
@@ -120,10 +137,10 @@ def get_atom_data(xml_file) -> tuple:
 
     entries = root.findall(f"{atom}entry")
 
-    return ns, atom, entries
+    return entries, ns
 
 
-def get_main_df(entries: list, ns: dict, mapping: dict) -> pd.DataFrame:
+def get_df(entries: list, ns: dict, mappings: dict) -> pd.DataFrame:
     """
     Extracts the main information from the entries of the XML file and returns a DataFrame with the data.
 
@@ -153,7 +170,7 @@ def get_main_df(entries: list, ns: dict, mapping: dict) -> pd.DataFrame:
         flat_details = flatten_dict(details_dict)
 
         # Add specific information to entry data
-        for k, v in mapping.items():
+        for k, v in mappings.items():
             try:
                 entry_data[k] = recursive_find_value(v, flat_details)[1]
             except TypeError:
@@ -167,3 +184,102 @@ def get_main_df(entries: list, ns: dict, mapping: dict) -> pd.DataFrame:
     df = pd.DataFrame(data)
 
     return df
+
+
+def download_and_extract_zip(source_data: dict, period: str):
+    """
+    This function receives a dictionary of source data per period and the selected period.
+    It downloads the documents inside a folder named after the period.
+
+    Parameters:
+    source_data (dict): Dictionary with periods as keys and URLs as values.
+    period (int): The selected period for which the data needs to be downloaded.
+    """
+    if period not in source_data.keys():
+        raise ValueError(f'The period {period} is not available in the source data.')
+    else:
+        zip_url = source_data[period]
+        folder = os.path.join(os.path.dirname(os.path.abspath('')), 'data', period)
+        response = requests.get(zip_url)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as thezip:
+            thezip.extractall(folder)
+
+
+def get_folder_path(period: str):
+    """
+    This function receives the period for which the data is downloaded.
+    It returns the path to the folder where the data is downloaded.
+
+    Parameters:
+    period (str): The period for which the data is downloaded.
+
+    Returns:
+    str: The path to the folder where the data is downloaded.
+    """
+    folder = os.path.join(os.path.dirname(os.path.abspath('')), 'data', period)
+
+    return folder
+
+
+def get_full_paths(folder: str):
+    """
+    This function receives the folder path where the data is downloaded.
+    It returns a list with the full paths of the files in the folder.
+
+    Parameters:
+    folder (str): The path to the folder where the data is downloaded.
+
+    Returns:
+    list: A list with the full paths of the files in the folder.
+    """
+    files = os.listdir(folder)
+    full_paths = [os.path.join(folder, file) for file in files]
+    full_paths.sort()
+
+    return full_paths
+
+
+def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
+    """
+    This function receives a list of full paths to the files with the data.
+    It returns a DataFrame with the data from all the files.
+
+    Parameters:
+    paths (list): A list with the full paths to the files with the data.
+
+    Returns:
+    DataFrame: A DataFrame with the data from all the files.
+    """
+    dfs = []
+    for path in paths:
+        entries, ns = get_atom_data(path)
+        df = get_df(entries, ns, mappings)
+        dfs.append(df)
+
+    final_df = pd.concat(dfs, ignore_index=True)
+
+    return final_df
+
+def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Removes duplicates from a dataframe based on the 'id' and 'title' columns.
+    If there are duplicates, the most recent entry is kept.
+
+    Parameters:
+    df (DataFrame): A pandas DataFrame.
+
+    Returns:
+    DataFrame: A pandas DataFrame with dupliactes removed.
+
+    """
+
+    no_dups_df = df.copy()
+    no_dups_df['updated'] = pd.to_datetime(no_dups_df['updated'])
+
+    no_dups_df = no_dups_df.sort_values(by=['id', 'title', 'updated'], ascending=[True, True, False])
+
+    no_dups_df = no_dups_df.drop_duplicates(subset=['id', 'title'], keep='first')
+
+    no_dups_df.reset_index(drop=True, inplace=True)
+
+    return no_dups_df

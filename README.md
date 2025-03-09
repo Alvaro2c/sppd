@@ -25,7 +25,6 @@ Currently, we are working on a notebook for parsing and database creation based 
 - Python 3.10
 - Streamlit
 - Pandas
-- SQLAlchemy
 
 ### Installation
 
@@ -39,14 +38,14 @@ Currently, we are working on a notebook for parsing and database creation based 
   ```
 3. Install the required packages:
   ```sh
-  pip install -r requirements.txt
+  pip install -e .
   ```
 
 ### Running the App
 
 To run the Streamlit app, use the following command:
 ```sh
-streamlit run app.py
+streamlit run src/app.py
 ```
 
 ## Contributing

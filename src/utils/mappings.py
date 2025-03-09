@@ -22,4 +22,12 @@ mappings = {
     "tp_submission_method_code": "TenderingProcess.SubmissionMethodCode",
     "tp_deadline_date": "TenderingProcess.TenderSubmissionDeadlinePeriod.EndDate",
     "tp_deadline_time": "TenderingProcess.TenderSubmissionDeadlinePeriod.EndTime",
+    "tr_result_code": "TenderResult.ResultCode",
+    "tr_winning_party_id": "TenderResult.WinningParty.PartyIdentification.ID",
+    "tr_winning_party_name": "TenderResult.WinningParty.PartyName.Name",
+    "tr_tax_exclusive_amount": "TenderResult.AwardedTenderedProject.LegalMonetaryTotal.TaxExclusiveAmount",
+    "tr_payable_amount": "TenderResult.AwardedTenderedProject.LegalMonetaryTotal.PayableAmount",
+    "tr_sme_awarded_indicator": "TenderResult.SMEAwardedIndicator",
+    "tr_award_date": "TenderResult.AwardDate"
+
 }
