@@ -31,7 +31,10 @@ def get_source_data():
     """
     Get the source data from the url and return a dict with the period as key and the link to the data as value.
     """
-    source_url = "https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx"
+    source_url = (
+        "https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/"
+        "Paginas/LicitacionesContratante.aspx"
+    )
     soup = get_soup(source_url)
 
     links = [
