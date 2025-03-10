@@ -271,26 +271,25 @@ def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
 
 def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Removes duplicates from a dataframe based on the 'id' and 'title' columns.
+    Removes duplicates from a dataframe based on the 'id', 'link', and 'title' columns.
     If there are duplicates, the most recent entry is kept.
 
     Parameters:
     df (DataFrame): A pandas DataFrame.
 
     Returns:
-    DataFrame: A pandas DataFrame with dupliactes removed.
-
+    DataFrame: A pandas DataFrame with duplicates removed.
     """
 
     no_dups_df = df.copy()
     no_dups_df["updated"] = pd.to_datetime(no_dups_df["updated"])
 
     no_dups_df = no_dups_df.sort_values(
-        by=["id", "title", "updated"], ascending=[True, True, False]
+        by=["id", "link", "title", "updated"], ascending=[True, True, True, False]
     )
 
-    no_dups_df = no_dups_df.drop_duplicates(subset=["id", "title"], keep="first")
+    no_dups_df = no_dups_df.drop_duplicates(subset=["id", "link", "title"], keep="first")
 
-    no_dups_df.reset_index(drop=True, inplace=True)
+    no_dups_df = no_dups_df.sort_values(by="updated", ascending=False).reset_index(drop=True)
 
     return no_dups_df
