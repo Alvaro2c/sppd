@@ -11,6 +11,8 @@ import zipfile
 import io
 import os
 
+from src.utils.mappings import mappings
+
 
 def get_soup(url: str) -> BeautifulSoup:
     """
@@ -268,6 +270,25 @@ def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
 
     return final_df
 
+
+def get_full_parquet(period: str):
+    """
+    Generates a full parquet file for the given period.
+    This function performs the following steps:
+    1. Retrieves the folder path for the specified period.
+    2. Obtains the full paths of files within the folder.
+    3. Concatenates the dataframes from the full paths.
+    4. Saves the concatenated dataframe as a parquet file in the specified directory.
+    Args:
+        period (str): The period for which the parquet file is to be generated.
+    Returns:
+        None
+    """
+
+    folder = get_folder_path(period)
+    full_paths = get_full_paths(folder)
+    dfs = get_concat_dfs(full_paths, mappings)
+    dfs.to_parquet(f"/home/alvaro/code/Alvaro2c/sppd/data/parquet/{period}.parquet")
 
 def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     """
