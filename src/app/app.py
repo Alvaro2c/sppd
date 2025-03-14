@@ -1,5 +1,5 @@
 import streamlit as st
-import src.utils.mappings as mappings
+import src.dl_parser.mappings as mappings
 
 
 def main():

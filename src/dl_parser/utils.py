@@ -11,7 +11,7 @@ import zipfile
 import io
 import os
 
-from src.utils.mappings import mappings
+from src.dl_parser.mappings import mappings
 
 
 def get_soup(url: str) -> BeautifulSoup:
@@ -209,7 +209,7 @@ def download_and_extract_zip(source_data: dict, period: str):
         raise ValueError(f"The period {period} is not available in the source data.")
     else:
         zip_url = source_data[period]
-        folder = os.path.join(os.path.dirname(os.path.abspath("")), "data", period)
+        folder = get_folder_path(period)
         response = requests.get(zip_url)
         with zipfile.ZipFile(io.BytesIO(response.content)) as thezip:
             thezip.extractall(folder)
@@ -219,6 +219,7 @@ def get_folder_path(period: str):
     """
     This function receives the period for which the data is downloaded.
     It returns the path to the folder where the data is downloaded.
+    If the folder does not exist, it creates it.
 
     Parameters:
     period (str): The period for which the data is downloaded.
@@ -226,7 +227,9 @@ def get_folder_path(period: str):
     Returns:
     str: The path to the folder where the data is downloaded.
     """
-    folder = os.path.join(os.path.dirname(os.path.abspath("")), "data", period)
+
+    folder = os.path.join("data", period)
+    os.makedirs(folder, exist_ok=True)
 
     return folder
 
@@ -286,13 +289,19 @@ def get_full_parquet(period: str):
     """
 
     folder = get_folder_path(period)
+    folder_parquet = os.path.join(folder, "parquet")
+    os.makedirs(folder_parquet, exist_ok=True)
+    parquet_file = f"{folder_parquet}/{period}.parquet"
+
     full_paths = get_full_paths(folder)
     dfs = get_concat_dfs(full_paths, mappings)
-    dfs.to_parquet(f"/home/alvaro/code/Alvaro2c/sppd/data/parquet/{period}.parquet")
+
+    dfs.to_parquet(parquet_file)
+
 
 def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Removes duplicates from a dataframe based on the 'id', 'link', and 'title' columns.
+    Removes duplicates from a dataframe based on the 'link' column.
     If there are duplicates, the most recent entry is kept.
 
     Parameters:
@@ -306,11 +315,13 @@ def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     no_dups_df["updated"] = pd.to_datetime(no_dups_df["updated"])
 
     no_dups_df = no_dups_df.sort_values(
-        by=["id", "link", "title", "updated"], ascending=[True, True, True, False]
+        by=["link", "updated"], ascending=[True, True, True, False]
     )
 
-    no_dups_df = no_dups_df.drop_duplicates(subset=["id", "link", "title"], keep="first")
+    no_dups_df = no_dups_df.drop_duplicates(subset=["link"], keep="first")
 
-    no_dups_df = no_dups_df.sort_values(by="updated", ascending=False).reset_index(drop=True)
+    no_dups_df = no_dups_df.sort_values(by="updated", ascending=False).reset_index(
+        drop=True
+    )
 
     return no_dups_df
