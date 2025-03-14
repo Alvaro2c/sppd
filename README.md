@@ -3,11 +3,9 @@
 ## Project Overview
 
 This repository will allow users to:
-- Fetch and parse
-- Get insights from
-- Interact with using a LLM
-
-a database of public procurement data from Spain.
+- Fetch and parse public procurement data from Spain in atom/xml format and build parquet files from the raw data.
+- Create a SQL database from the parquet files.
+- Build an app with Streamlit to interact with the database.
 
 The official source of the data is the [Spanish Ministry of Finance](https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx).
 
@@ -15,7 +13,7 @@ The official source of the data is the [Spanish Ministry of Finance](https://www
 
 **Version:** 0.1.0
 
-## Upcoming features
+## Upcoming Features
 
 - Interactive querying of public procurement data.
 - User-friendly interface powered by Streamlit.
@@ -23,7 +21,7 @@ The official source of the data is the [Spanish Ministry of Finance](https://www
 
 ## Project Status
 
-Currently, there is a working notebook for parsing and database creation based on XML/ATOM files.
+Currently, the download and parser are working. The rest of the features are still in progress.
 
 ## Getting Started
 
@@ -46,7 +44,7 @@ Currently, there is a working notebook for parsing and database creation based o
 
 To run the Streamlit app, use the following command:
 ```sh
-streamlit run src/app.py
+streamlit run src/app/app.py
 ```
 
 ## License
