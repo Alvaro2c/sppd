@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 import zipfile
 import io
 import os
+from tqdm import tqdm
 
 from src.dl_parser.mappings import mappings
 
@@ -52,14 +53,14 @@ def get_source_data():
 
 def recursive_field_dict(field, field_dict: dict):
     """
-    Recursively converts an XML element and its children into a nested dictionary.
+    Recursively converts an ATOM element and its children into a nested dictionary.
 
     Args:
-        field (xml.etree.ElementTree.Element): The XML element to be converted.
-        field_dict (dict): The dictionary to store the converted XML structure.
+        field (xml.etree.ElementTree.Element): The ATOM element to be converted.
+        field_dict (dict): The dictionary to store the converted ATOM structure.
 
     Returns:
-        None: The function modifies the field_dict in place to replicate the XML tree structure.
+        None: The function modifies the field_dict in place to replicate the ATOM tree structure.
     """
     for child in field:
         tag = child.tag.split("}")[-1]
@@ -124,14 +125,14 @@ def flatten_dict(d: dict, parent_key="", sep=".") -> dict:
 
 def get_atom_data(xml_file) -> tuple:
     """
-    Parses an XML file and retrieves namespace information and entries.
+    Parses an ATOM file and retrieves namespace information and entries.
 
     Args:
-        file (str): The path to the XML file to be parsed.
+        file (str): The path to the ATOM file to be parsed.
 
     Returns:
         tuple: A tuple containing:
-            - entries (list): A list of XML elements found under the 'entry' tag in the default namespace.
+            - entries (list): A list of ATOM elements found under the 'entry' tag in the default namespace.
             - atom (str): The default namespace URI enclosed in curly braces.
     """
     tree = ET.parse(xml_file)
@@ -152,12 +153,12 @@ def get_atom_data(xml_file) -> tuple:
 
 def get_df(entries: list, ns: dict, mappings: dict) -> pd.DataFrame:
     """
-    Extracts the main information from the entries of the XML file and returns a DataFrame with the data.
+    Extracts the main information from the entries of the ATOM file and returns a DataFrame with the data.
 
     Parameters:
-    entries (list): List of XML elements representing the entries.
-    ns (dict): Dictionary of namespaces used in the XML file.
-    mapping (dict): Dictionary mapping the desired DataFrame column names to the corresponding XML tags.
+    entries (list): List of ATOML elements representing the entries.
+    ns (dict): Dictionary of namespaces used in the ATOM file.
+    mapping (dict): Dictionary mapping the desired DataFrame column names to the corresponding ATOM tags.
 
     Returns:
     pd.DataFrame: DataFrame containing the extracted data.
@@ -210,9 +211,21 @@ def download_and_extract_zip(source_data: dict, period: str):
     else:
         zip_url = source_data[period]
         folder = get_folder_path(period)
+        print(f"Requesting zip file from {period}...")
         response = requests.get(zip_url)
-        with zipfile.ZipFile(io.BytesIO(response.content)) as thezip:
-            thezip.extractall(folder)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as atomzip:
+            atom_files = atomzip.infolist()
+            total_size = sum(file.file_size for file in atom_files)
+
+            with tqdm(
+                total=total_size, desc="Extracting", unit="B", unit_scale=True
+            ) as pbar:
+                for file in atom_files:
+                    atomzip.extract(member=file, path=folder)
+                    pbar.update(file.file_size)
+
+        files_in_folder = len(os.listdir(folder))
+        print(f"{files_in_folder} ATOM files were downloaded.")
 
 
 def get_folder_path(period: str):
@@ -264,10 +277,12 @@ def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
     DataFrame: A DataFrame with the data from all the files.
     """
     dfs = []
-    for path in paths:
-        entries, ns = get_atom_data(path)
-        df = get_df(entries, ns, mappings)
-        dfs.append(df)
+    with tqdm(total=len(paths), desc="Parsing files", unit="file") as pbar:
+        for path in paths:
+            entries, ns = get_atom_data(path)
+            df = get_df(entries, ns, mappings)
+            dfs.append(df)
+            pbar.update(1)
 
     final_df = pd.concat(dfs, ignore_index=True)
 
@@ -285,43 +300,98 @@ def get_full_parquet(period: str):
     Args:
         period (str): The period for which the parquet file is to be generated.
     Returns:
-        None
+        parquet_file (str): parquet_file path for duplicate handling strategy
     """
 
-    folder = get_folder_path(period)
-    folder_parquet = os.path.join(folder, "parquet")
+    folder_parquet = get_folder_path("parquet")
     os.makedirs(folder_parquet, exist_ok=True)
     parquet_file = f"{folder_parquet}/{period}.parquet"
 
+    folder = get_folder_path(period)
     full_paths = get_full_paths(folder)
     dfs = get_concat_dfs(full_paths, mappings)
 
     dfs.to_parquet(parquet_file)
 
+    print(
+        f"Parsed and created parquet file for {period} with {dfs.shape[0]} rows and {dfs.shape[1]} columns."
+    )
 
-def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
+    return parquet_file
+
+
+def remove_duplicates(parquet_path: str, strategy: str) -> pd.DataFrame:
     """
-    Removes duplicates from a dataframe based on the 'link' column.
+    Removes duplicates from a dataframe based on the 'link', 'id' or 'title' column.
     If there are duplicates, the most recent entry is kept.
 
     Parameters:
     df (DataFrame): A pandas DataFrame.
 
     Returns:
-    DataFrame: A pandas DataFrame with duplicates removed.
+    DataFrame: A pandas DataFrame with duplicates removed with selected strategy.
     """
+
+    if strategy == "None":
+        return None
+
+    strategies = ["id", "link", "title"]
+
+    if strategy not in strategies:
+        raise ValueError(
+            f"Invalid strategy: {strategy}. Allowed strategies are {strategies}"
+        )
+
+    df = pd.read_parquet(parquet_path)
 
     no_dups_df = df.copy()
     no_dups_df["updated"] = pd.to_datetime(no_dups_df["updated"])
 
     no_dups_df = no_dups_df.sort_values(
-        by=["link", "updated"], ascending=[True, True, True, False]
+        by=[strategy, "updated"], ascending=[True, False]
     )
 
-    no_dups_df = no_dups_df.drop_duplicates(subset=["link"], keep="first")
+    no_dups_df = no_dups_df.drop_duplicates(subset=[strategy], keep="first")
 
     no_dups_df = no_dups_df.sort_values(by="updated", ascending=False).reset_index(
         drop=True
     )
 
+    dups_dropped = len(df) - len(no_dups_df)
+    print(f"{dups_dropped} duplicate rows (by {strategy}) were dropped.")
+
     return no_dups_df
+
+
+def delete_files(period: str):
+    """
+    Deletes the folder with the given period name inside the data folder.
+
+    Parameters:
+    period (str): The name of the period whose folder is to be deleted.
+
+    Returns:
+    None
+    """
+
+    folder = get_folder_path(period)
+    files_in_folder = len(os.listdir(folder))
+    if os.path.exists(folder):
+        os.rmdir(folder)
+        print(f"{files_in_folder} ATOM files were deleted.")
+    else:
+        raise FileNotFoundError(f"The files for period {period} does not exist.")
+
+
+def dl_parser(source_data: dict, selected_period: str, dup_strat: str, del_files: str):
+    """
+    Main function to download, process, and save data for a specified period.
+    """
+
+    download_and_extract_zip(source_data, selected_period)
+    parquet_file = get_full_parquet(selected_period)
+    remove_duplicates(parquet_file, dup_strat)
+    if del_files == "Y":
+        delete_files(selected_period)
+
+    return parquet_file

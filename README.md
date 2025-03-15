@@ -1,11 +1,7 @@
 # SPPD Spanish Public Procurement Data
 
 ## Project Overview
-
-This repository will allow users to:
-- Fetch and parse public procurement data from Spain in atom/xml format and build parquet files from the raw data.
-- Create a SQL database from the parquet files.
-- Build an app with Streamlit to interact with the database.
+This repository focuses on creating Python scripts and tools to efficiently download, parse, access, transform, and interact with Spanish public procurement data.
 
 The official source of the data is the [Spanish Ministry of Finance](https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx).
 
@@ -13,15 +9,15 @@ The official source of the data is the [Spanish Ministry of Finance](https://www
 
 **Version:** 0.1.0
 
-## Upcoming Features
-
-- Interactive querying of public procurement data.
-- User-friendly interface powered by Streamlit.
-- Integration with a Large Language Model for advanced data interaction.
 
 ## Project Status
 
-Currently, the download and parser are working. The rest of the features are still in progress.
+Currently the downloader and parser (dl_parser module) is fully functional
+
+## Upcoming Features
+
+- Database creation with raw data from parquet files
+- Streamlit app to interact with the database (SQL and LLM)
 
 ## Getting Started
 
@@ -40,11 +36,11 @@ Currently, the download and parser are working. The rest of the features are sti
     pip install -e .
     ```
 
-### Running the App
+### Using the modules
 
-To run the Streamlit app, use the following command:
+To use dl_parser module, use the following command:
 ```sh
-streamlit run src/app/app.py
+python src/dl_parser/main.py
 ```
 
 ## License
