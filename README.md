@@ -1,4 +1,4 @@
-# SPPD Spanish Public Procurement Data Tools
+# SPPD Spanish Public Procurement Data
 
 ## Project Overview
 This repository focuses on creating Python scripts and tools to efficiently download, parse, access, transform, and interact with Spanish public procurement data.
