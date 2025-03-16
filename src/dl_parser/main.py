@@ -12,7 +12,12 @@ def main():
     Usage:
         python main.py
     """
-    source_data = get_source_data()
+
+    source_url = (
+        "https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/"
+        "Paginas/LicitacionesContratante.aspx"
+    )
+    source_data = get_source_data(source_url=source_url)
     periods = source_data.keys()
     dup_strats = ["id", "link", "title", "None"]
     yes_or_no = ["Y", "N"]
@@ -20,7 +25,7 @@ def main():
     months = [period for period in periods if len(period) > 4]
 
     print(
-    """
+        """
     Welcome to the Spanish Public Procurement Database (SPPD) downloader and parser.
     You will be able to download ATOM files and parse them into parquet files.
     """
@@ -101,11 +106,11 @@ def main():
         main()
     else:
         parquet_file = dl_parser(
-                            source_data=source_data,
-                            selected_period=selected_period,
-                            dup_strat=dup_strat,
-                            del_files=del_files,
-                        )
+            source_data=source_data,
+            selected_period=selected_period,
+            dup_strat=dup_strat,
+            del_files=del_files,
+        )
 
         print(f"\nFile location: {parquet_file}\n")
 

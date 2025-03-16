@@ -30,16 +30,12 @@ def get_soup(url: str) -> BeautifulSoup:
     return BeautifulSoup(response.text, "html.parser")
 
 
-def get_source_data():
+def get_source_data(source_url: str):
     """
     Get the source data from the url and return a dict with the period as key and the link to the data as value.
     """
-    source_url = (
-        "https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/"
-        "Paginas/LicitacionesContratante.aspx"
-    )
-    soup = get_soup(source_url)
 
+    soup = get_soup(source_url)
     links = [
         a.get("href")
         for a in soup.find_all("a")
@@ -177,18 +173,22 @@ def get_df(entries: list, ns: dict, mappings: dict) -> pd.DataFrame:
         # Generate full details information
         details = entry.find("cac-place-ext:ContractFolderStatus", ns)
         details_dict = {}
-        recursive_field_dict(details, details_dict)
-        flat_details = flatten_dict(details_dict)
+        if details:
+            recursive_field_dict(details, details_dict)
+            flat_details = flatten_dict(details_dict)
 
-        # Add specific information to entry data
-        for k, v in mappings.items():
-            try:
-                entry_data[k] = recursive_find_value(v, flat_details)[1]
-            except TypeError:
-                entry_data[k] = None
+            # Add specific information to entry data
+            for k, v in mappings.items():
+                try:
+                    entry_data[k] = recursive_find_value(v, flat_details)[1]
+                except TypeError:
+                    entry_data[k] = None
 
-        entry_data.pop("summary")
-        entry_data.pop("ContractFolderStatus")
+        # Pop columns that are no longer needed
+        pop_cols = ["summary", "ContractFolderStatus"]
+        for pop_col in pop_cols:
+            if pop_col in entry_data.keys():
+                entry_data.pop(pop_col)
 
         data.append(entry_data)
 
