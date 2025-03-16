@@ -235,19 +235,14 @@ def download_and_extract_zip(source_data: dict, period: str):
                     atomzip.extract(member=file, path=folder)
                     pbar.update(file.file_size)
 
-        files_in_folder = len(os.listdir(folder))
-
-        if files_in_folder:
-            print(f"{files_in_folder} ATOM files were downloaded.")
-        else:
-            (f"No ATOM files were downloaded for period {period}.")
+        files_in_folder = 0
+        if os.path.exists(folder) and os.path.isdir(folder):
+            files_in_folder = len(os.listdir(folder))
+        print(f"{files_in_folder} ATOM files were downloaded.")
 
 
 def get_folder_path(period: str):
     """
-    This function receives the period for which the data is downloaded.
-    It returns the path to the folder where the data is downloaded.
-    If the folder does not exist, it creates it.
 
     Parameters:
     period (str): The period for which the data is downloaded.
@@ -390,8 +385,9 @@ def delete_files(period: str):
     """
 
     folder = get_folder_path(period)
-    files_in_folder = len(os.listdir(folder))
-    if os.path.exists(folder):
+    files_in_folder = 0
+    if os.path.exists(folder) and os.path.isdir(folder):
+        files_in_folder = len(os.listdir(folder))
         os.rmdir(folder)
         print(f"{files_in_folder} ATOM files were deleted.")
     else:
