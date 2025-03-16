@@ -19,7 +19,6 @@ import xml.etree.ElementTree as ET
 from unittest.mock import patch, mock_open, ANY
 from bs4 import BeautifulSoup
 import pandas as pd
-import io
 import os
 
 
