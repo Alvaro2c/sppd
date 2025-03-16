@@ -235,12 +235,11 @@ def download_and_extract_zip(source_data: dict, period: str, data_path: str = "d
                     atomzip.extract(member=file, path=folder)
                     pbar.update(file.file_size)
 
-
         files_in_folder = len(os.listdir(folder))
         print(f"{files_in_folder} ATOM files were downloaded.")
 
 
-def get_folder_path(period: str, data_path: str = "data"):
+def get_folder_path(period: str, data_path: str):
     """
     This function receives the period for which the data is downloaded.
     It returns the path to the folder where the data is downloaded.
@@ -301,7 +300,7 @@ def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
     return final_df
 
 
-def get_full_parquet(period: str):
+def get_full_parquet(period: str, data_path: str):
     """
     Generates a full parquet file for the given period.
     This function performs the following steps:
@@ -315,11 +314,11 @@ def get_full_parquet(period: str):
         parquet_file (str): parquet_file path for duplicate handling strategy
     """
 
-    folder_parquet = get_folder_path("parquet")
+    folder_parquet = get_folder_path("parquet", data_path)
     os.makedirs(folder_parquet, exist_ok=True)
     parquet_file = f"{folder_parquet}/{period}.parquet"
 
-    folder = get_folder_path(period)
+    folder = get_folder_path(period, data_path)
     full_paths = get_full_paths(folder)
     dfs = get_concat_dfs(full_paths, mappings)
 
@@ -375,7 +374,7 @@ def remove_duplicates(parquet_path: str, strategy: str) -> pd.DataFrame:
     return no_dups_df
 
 
-def delete_files(period: str):
+def delete_files(period: str, data_path: str):
     """
     Deletes the folder with the given period name inside the data folder.
 
@@ -386,7 +385,7 @@ def delete_files(period: str):
     None
     """
 
-    folder = get_folder_path(period)
+    folder = get_folder_path(period, data_path)
     files_in_folder = len(os.listdir(folder))
     if os.path.exists(folder):
         os.rmdir(folder)

@@ -30,6 +30,7 @@ def test_get_soup(sample_url, sample_html_content):
         soup = get_soup(sample_url)
         assert isinstance(soup, BeautifulSoup)
 
+
 def test_extract_digits_from_url():
     url_with_digits = "https://example.com/file_202101.zip"
     url_without_digits = "https://example.com/file.zip"
@@ -38,6 +39,7 @@ def test_extract_digits_from_url():
     assert extract_digits_from_url(url_with_digits) == "202101"
     assert extract_digits_from_url(url_without_digits) is None
     assert extract_digits_from_url(url_with_short_digits) is None
+
 
 def test_flatten_dict(sample_nested_dict):
     flat_dict = flatten_dict(sample_nested_dict)
@@ -122,8 +124,8 @@ def test_download_and_extract_zip(sample_source_data, sample_period, tmp_path):
 
 def test_get_folder_path(sample_period, tmp_path):
     with patch("os.makedirs") as mock_makedirs:
-        folder_path = get_folder_path(sample_period)
-        expected_path = os.path.join("data", sample_period)
+        folder_path = get_folder_path(sample_period, tmp_path)
+        expected_path = os.path.join(tmp_path, sample_period)
         mock_makedirs.assert_called_with(expected_path, exist_ok=True)
         assert folder_path == expected_path
 
@@ -170,7 +172,7 @@ def test_get_concat_dfs(sample_mappings):
         pd.testing.assert_frame_equal(df, expected_df)
 
 
-def test_get_full_parquet(sample_period):
+def test_get_full_parquet(sample_period, tmp_path):
     with patch("src.dl_parser.utils.get_folder_path") as mock_get_folder_path, patch(
         "src.dl_parser.utils.get_full_paths"
     ) as mock_get_full_paths, patch(
@@ -178,7 +180,7 @@ def test_get_full_parquet(sample_period):
     ) as mock_get_concat_dfs, patch(
         "pandas.DataFrame.to_parquet"
     ) as mock_to_parquet:
-        mock_get_folder_path.side_effect = lambda x: f"data/{x}"
+        mock_get_folder_path.side_effect = lambda x, y: os.path.join(y, x)
         mock_get_full_paths.return_value = ["file1.xml", "file2.xml"]
         mock_get_concat_dfs.return_value = pd.DataFrame(
             [
@@ -189,8 +191,8 @@ def test_get_full_parquet(sample_period):
                 }
             ]
         )
-        parquet_file = get_full_parquet(sample_period)
-        expected_parquet_file = "data/parquet/202101.parquet"
+        parquet_file = get_full_parquet(sample_period, tmp_path)
+        expected_parquet_file = f"{tmp_path}/parquet/202101.parquet"
         mock_to_parquet.assert_called_with(expected_parquet_file)
         assert parquet_file == expected_parquet_file
 
@@ -212,14 +214,14 @@ def test_remove_duplicates(sample_parquet_path, sample_df_with_duplicates):
         pd.testing.assert_frame_equal(no_dups_df, expected_df)
 
 
-def test_delete_files(sample_period, sample_folder):
+def test_delete_files(sample_period, tmp_path):
     with patch("os.path.exists") as mock_exists, patch(
         "os.listdir"
     ) as mock_listdir, patch("os.rmdir") as mock_rmdir:
         mock_exists.return_value = True
         mock_listdir.return_value = ["file1.xml", "file2.xml"]
-        delete_files(sample_period)
-        mock_rmdir.assert_called_with(sample_folder)
+        delete_files(sample_period, tmp_path)
+        mock_rmdir.assert_called_with(f"{tmp_path}/{sample_period}")
 
 
 def test_dl_parser(
