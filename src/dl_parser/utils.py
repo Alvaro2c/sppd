@@ -236,7 +236,11 @@ def download_and_extract_zip(source_data: dict, period: str):
                     pbar.update(file.file_size)
 
         files_in_folder = len(os.listdir(folder))
-        print(f"{files_in_folder} ATOM files were downloaded.")
+
+        if files_in_folder:
+            print(f"{files_in_folder} ATOM files were downloaded.")
+        else:
+            (f"No ATOM files were downloaded for period {period}.")
 
 
 def get_folder_path(period: str):
