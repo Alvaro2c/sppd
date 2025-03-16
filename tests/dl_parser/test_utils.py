@@ -1,5 +1,6 @@
 from src.dl_parser.utils import (
     get_soup,
+    extract_digits_from_url,
     flatten_dict,
     get_source_data,
     recursive_field_dict,
@@ -20,6 +21,7 @@ from unittest.mock import patch, mock_open, ANY
 from bs4 import BeautifulSoup
 import pandas as pd
 import os
+import re
 
 
 def test_get_soup(sample_url, sample_html_content):
@@ -28,6 +30,14 @@ def test_get_soup(sample_url, sample_html_content):
         soup = get_soup(sample_url)
         assert isinstance(soup, BeautifulSoup)
 
+def test_extract_digits_from_url():
+    url_with_digits = "https://example.com/file_202101.zip"
+    url_without_digits = "https://example.com/file.zip"
+    url_with_short_digits = "https://example.com/file_21.zip"
+
+    assert extract_digits_from_url(url_with_digits) == "202101"
+    assert extract_digits_from_url(url_without_digits) is None
+    assert extract_digits_from_url(url_with_short_digits) is None
 
 def test_flatten_dict(sample_nested_dict):
     flat_dict = flatten_dict(sample_nested_dict)
@@ -99,18 +109,18 @@ def test_get_df(sample_entries, sample_mappings):
     pd.testing.assert_frame_equal(df, expected_df)
 
 
-def test_download_and_extract_zip(sample_source_data, sample_period):
+def test_download_and_extract_zip(sample_source_data, sample_period, tmp_path):
     with patch("requests.get") as mock_get, patch("zipfile.ZipFile") as mock_zip, patch(
         "builtins.open", mock_open()
-    ), patch("os.makedirs"):
+    ):
         mock_get.return_value.content = b"dummy zip content"
         mock_zip.return_value.infolist.return_value = []
-        download_and_extract_zip(sample_source_data, sample_period)
+        download_and_extract_zip(sample_source_data, sample_period, tmp_path)
         mock_get.assert_called_with("https://example.com/contratacion202101.zip")
         mock_zip.assert_called_with(ANY)
 
 
-def test_get_folder_path(sample_period):
+def test_get_folder_path(sample_period, tmp_path):
     with patch("os.makedirs") as mock_makedirs:
         folder_path = get_folder_path(sample_period)
         expected_path = os.path.join("data", sample_period)

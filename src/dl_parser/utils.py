@@ -208,7 +208,7 @@ def get_df(entries: list, ns: dict, mappings: dict) -> pd.DataFrame:
     return df
 
 
-def download_and_extract_zip(source_data: dict, period: str):
+def download_and_extract_zip(source_data: dict, period: str, data_path: str = "data"):
     """
     This function receives a dictionary of source data per period and the selected period.
     It downloads the documents inside a folder named after the period.
@@ -221,7 +221,7 @@ def download_and_extract_zip(source_data: dict, period: str):
         raise ValueError(f"The period {period} is not available in the source data.")
     else:
         zip_url = source_data[period]
-        folder = get_folder_path(period)
+        folder = get_folder_path(period, data_path)
         print(f"Requesting zip file from {period}...")
         response = requests.get(zip_url)
         with zipfile.ZipFile(io.BytesIO(response.content)) as atomzip:
@@ -235,14 +235,16 @@ def download_and_extract_zip(source_data: dict, period: str):
                     atomzip.extract(member=file, path=folder)
                     pbar.update(file.file_size)
 
-        files_in_folder = 0
-        if os.path.exists(folder) and os.path.isdir(folder):
-            files_in_folder = len(os.listdir(folder))
+
+        files_in_folder = len(os.listdir(folder))
         print(f"{files_in_folder} ATOM files were downloaded.")
 
 
-def get_folder_path(period: str):
+def get_folder_path(period: str, data_path: str = "data"):
     """
+    This function receives the period for which the data is downloaded.
+    It returns the path to the folder where the data is downloaded.
+    If the folder does not exist, it creates it.
 
     Parameters:
     period (str): The period for which the data is downloaded.
@@ -251,7 +253,7 @@ def get_folder_path(period: str):
     str: The path to the folder where the data is downloaded.
     """
 
-    folder = os.path.join("data", period)
+    folder = os.path.join(data_path, period)
     os.makedirs(folder, exist_ok=True)
 
     return folder
@@ -385,9 +387,8 @@ def delete_files(period: str):
     """
 
     folder = get_folder_path(period)
-    files_in_folder = 0
-    if os.path.exists(folder) and os.path.isdir(folder):
-        files_in_folder = len(os.listdir(folder))
+    files_in_folder = len(os.listdir(folder))
+    if os.path.exists(folder):
         os.rmdir(folder)
         print(f"{files_in_folder} ATOM files were deleted.")
     else:
