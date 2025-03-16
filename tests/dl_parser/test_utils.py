@@ -40,8 +40,14 @@ def test_get_source_data(sample_url, sample_html_content):
         mock_get.return_value.text = sample_html_content
         source_data = get_source_data(sample_url)
         expected_data = {
-            "202502": "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3_202502.zip",
-            "2020": "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3_2020.zip",
+            "202502": (
+                "https://contrataciondelsectorpublico.gob.es/sindicacion/"
+                "sindicacion_643/licitacionesPerfilesContratanteCompleto3_202502.zip"
+            ),
+            "2020": (
+                "https://contrataciondelsectorpublico.gob.es/sindicacion/"
+                "sindicacion_643/licitacionesPerfilesContratanteCompleto3_2020.zip"
+            ),
         }
         assert source_data == expected_data
 
