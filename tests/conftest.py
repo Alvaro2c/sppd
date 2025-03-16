@@ -91,3 +91,8 @@ def sample_folder():
 @pytest.fixture
 def sample_parquet_path():
     return "data/parquet/202101.parquet"
+
+
+@pytest.fixture
+def mock_source_data():
+    return {"2023": "url1", "2022": "url2", "202301": "url3", "202302": "url4"}
