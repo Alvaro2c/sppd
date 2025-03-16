@@ -13,8 +13,8 @@ def sample_html_content():
     return """
     <html>
         <body>
-            <a href="https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3_202502.zip">Link 1</a>
-            <a href="https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3_2020.zip">Link 2</a>
+            <a href="https://contrataciondelsectorpublico.gob.es/3_202502.zip">Link 1</a>
+            <a href="https://contrataciondelsectorpublico.gob.es/3_2020.zip">Link 2</a>
         </body>
     </html>
     """

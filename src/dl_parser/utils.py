@@ -3,6 +3,7 @@ import pandas as pd
 
 # web/xml scraping
 import requests
+import re
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 
@@ -30,6 +31,16 @@ def get_soup(url: str) -> BeautifulSoup:
     return BeautifulSoup(response.text, "html.parser")
 
 
+def extract_digits_from_url(url):
+    """
+    Extracts the digits from the URL that correspond to the period of the file to be downloaded.
+    """
+    match = re.search(r"_(\d{4,6})\.zip", url)
+    if match:
+        return match.group(1)
+    return None
+
+
 def get_source_data(source_url: str):
     """
     Get the source data from the url and return a dict with the period as key and the link to the data as value.
@@ -41,7 +52,7 @@ def get_source_data(source_url: str):
         for a in soup.find_all("a")
         if "contratacion" in a.get("href") and a.get("href").endswith("zip")
     ]
-    periods = [link[113:-4] for link in links]
+    periods = [extract_digits_from_url(link) for link in links]
     source_data = {p: l for p, l in zip(periods, links)}
 
     return source_data
