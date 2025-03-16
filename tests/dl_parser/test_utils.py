@@ -21,7 +21,6 @@ from unittest.mock import patch, mock_open, ANY
 from bs4 import BeautifulSoup
 import pandas as pd
 import os
-import re
 
 
 def test_get_soup(sample_url, sample_html_content):
