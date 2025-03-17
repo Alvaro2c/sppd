@@ -65,7 +65,7 @@ def main():
 
     while dup_strat not in dup_strats:
         print(
-            "\nSorry, incorrect input. Please type one of the mentioned strategies (id, link, title).\n"
+            "\nSorry, incorrect input. Please type one of the mentioned strategies (id, link, title or None).\n"
         )
         dup_strat = prompt_for_dup_strat()
 

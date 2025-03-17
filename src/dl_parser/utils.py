@@ -300,7 +300,7 @@ def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
     return final_df
 
 
-def get_full_parquet(period: str, data_path: str):
+def get_full_parquet(period: str, data_path: str = "data"):
     """
     Generates a full parquet file for the given period.
     This function performs the following steps:
@@ -374,7 +374,7 @@ def remove_duplicates(parquet_path: str, strategy: str) -> pd.DataFrame:
     return no_dups_df
 
 
-def delete_files(period: str, data_path: str):
+def delete_files(period: str, data_path: str = "data"):
     """
     Deletes the folder with the given period name inside the data folder.
 

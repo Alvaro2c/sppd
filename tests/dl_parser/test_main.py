@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch
 from src.dl_parser.main import main
 
