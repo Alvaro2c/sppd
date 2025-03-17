@@ -17,7 +17,7 @@ Currently the downloader and parser (dl_parser module) is fully functional.
 ## Upcoming Features
 
 - Database creation with raw data from parquet files
-- Streamlit app to interact with the database (SQL and LLM)
+- Streamlit app to interact with the database
 
 ## Getting Started
 
@@ -70,4 +70,4 @@ This project is licensed under the MIT License.
 
 ## Contact
 
-For any questions or suggestions, please open an issue or contact the project maintainer.
+For any questions or suggestions, please open an issue or contact @alvaro2c.
