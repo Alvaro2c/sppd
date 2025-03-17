@@ -34,6 +34,12 @@ def get_soup(url: str) -> BeautifulSoup:
 def extract_digits_from_url(url):
     """
     Extracts the digits from the URL that correspond to the period of the file to be downloaded.
+
+    Args:
+        url (str): The URL from which to extract the period.
+
+    Returns:
+        str: The period extracted from (or None if not found in) the URL.
     """
     match = re.search(r"_(\d{4,6})\.zip", url)
     if match:
@@ -44,6 +50,12 @@ def extract_digits_from_url(url):
 def get_source_data(source_url: str):
     """
     Get the source data from the url and return a dict with the period as key and the link to the data as value.
+
+    Args:
+        source_url (str): The URL of the webpage to fetch the source data from.
+
+    Returns:
+        dict: A dictionary with the period as key and the link to the data as value.
     """
 
     soup = get_soup(source_url)
@@ -135,7 +147,7 @@ def get_atom_data(xml_file) -> tuple:
     Parses an ATOM file and retrieves namespace information and entries.
 
     Args:
-        file (str): The path to the ATOM file to be parsed.
+        xml_file (str): The path to the ATOM file to be parsed.
 
     Returns:
         tuple: A tuple containing:
@@ -216,6 +228,7 @@ def download_and_extract_zip(source_data: dict, period: str, data_path: str = "d
     Parameters:
     source_data (dict): Dictionary with periods as keys and URLs as values.
     period (int): The selected period for which the data needs to be downloaded.
+    data_path (str): The path to the data folder. Defaults to 'data'.
     """
     if period not in source_data.keys():
         raise ValueError(f"The period {period} is not available in the source data.")
@@ -239,7 +252,7 @@ def download_and_extract_zip(source_data: dict, period: str, data_path: str = "d
         print(f"{files_in_folder} ATOM files were downloaded.")
 
 
-def get_folder_path(period: str, data_path: str):
+def get_folder_path(period: str, data_path: str = "data"):
     """
     This function receives the period for which the data is downloaded.
     It returns the path to the folder where the data is downloaded.
@@ -247,6 +260,7 @@ def get_folder_path(period: str, data_path: str):
 
     Parameters:
     period (str): The period for which the data is downloaded.
+    data_path(str): The path to the data folder.
 
     Returns:
     str: The path to the folder where the data is downloaded.
@@ -283,6 +297,7 @@ def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
 
     Parameters:
     paths (list): A list with the full paths to the files with the data.
+    mappings (dict): Dictionary mapping the desired DataFrame column names to the corresponding ATOM tags.
 
     Returns:
     DataFrame: A DataFrame with the data from all the files.
@@ -300,18 +315,21 @@ def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
     return final_df
 
 
-def get_full_parquet(period: str, data_path: str = "data"):
+def get_full_parquet(period: str, dup_strategy: str, data_path: str = "data"):
     """
     Generates a full parquet file for the given period.
     This function performs the following steps:
     1. Retrieves the folder path for the specified period.
     2. Obtains the full paths of files within the folder.
     3. Concatenates the dataframes from the full paths.
-    4. Saves the concatenated dataframe as a parquet file in the specified directory.
+    4. Applies a duplicate handling strategy to the concatenated dataframe.
+    5. Saves the concatenated dataframe as a parquet file in the specified directory.
     Args:
         period (str): The period for which the parquet file is to be generated.
+        dup_strategy (str): The strategy to handle duplicates.
+        data_path (str): The path to the data folder. Defaults to 'data'.
     Returns:
-        parquet_file (str): parquet_file path for duplicate handling strategy
+        parquet_file (str): parquet_file path for the generated parquet file.
     """
 
     folder_parquet = get_folder_path("parquet", data_path)
@@ -322,6 +340,8 @@ def get_full_parquet(period: str, data_path: str = "data"):
     full_paths = get_full_paths(folder)
     dfs = get_concat_dfs(full_paths, mappings)
 
+    dfs = remove_duplicates(dfs, dup_strategy)
+
     dfs.to_parquet(parquet_file)
 
     print(
@@ -331,20 +351,21 @@ def get_full_parquet(period: str, data_path: str = "data"):
     return parquet_file
 
 
-def remove_duplicates(parquet_path: str, strategy: str) -> pd.DataFrame:
+def remove_duplicates(df: str, strategy: str) -> pd.DataFrame:
     """
     Removes duplicates from a dataframe based on the 'link', 'id' or 'title' column.
     If there are duplicates, the most recent entry is kept.
 
-    Parameters:
+    Args:
     df (DataFrame): A pandas DataFrame.
+    strategy (str): The strategy to use for removing duplicates. Allowed values are 'id', 'link', 'title' or 'None'.
 
     Returns:
     DataFrame: A pandas DataFrame with duplicates removed with selected strategy.
     """
 
     if strategy == "None":
-        return None
+        return df
 
     strategies = ["id", "link", "title"]
 
@@ -352,8 +373,6 @@ def remove_duplicates(parquet_path: str, strategy: str) -> pd.DataFrame:
         raise ValueError(
             f"Invalid strategy: {strategy}. Allowed strategies are {strategies}"
         )
-
-    df = pd.read_parquet(parquet_path)
 
     no_dups_df = df.copy()
     no_dups_df["updated"] = pd.to_datetime(no_dups_df["updated"])
@@ -378,8 +397,9 @@ def delete_files(period: str, data_path: str = "data"):
     """
     Deletes the folder with the given period name inside the data folder.
 
-    Parameters:
+    Args:
     period (str): The name of the period whose folder is to be deleted.
+    data_path (str): The path to the data folder. Defaults to 'data'.
 
     Returns:
     None
@@ -397,6 +417,12 @@ def delete_files(period: str, data_path: str = "data"):
 def dl_parser(source_data: dict, selected_period: str, dup_strat: str, del_files: str):
     """
     Main function to download, process, and save data for a specified period.
+
+    Args:
+    source_data (dict): Dictionary with periods as keys and URLs as values.
+    selected_period (str): The period for which the data is to be processed.
+    dup_strat (str): The strategy to handle duplicates.
+    del_files (str): Whether to delete the downloaded files after processing.
     """
 
     download_and_extract_zip(source_data, selected_period)

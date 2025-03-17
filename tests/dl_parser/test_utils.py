@@ -190,16 +190,16 @@ def test_get_full_parquet(sample_period, tmp_path):
                 }
             ]
         )
-        parquet_file = get_full_parquet(sample_period, tmp_path)
+        parquet_file = get_full_parquet(sample_period, 'None', tmp_path)
         expected_parquet_file = f"{tmp_path}/parquet/202101.parquet"
         mock_to_parquet.assert_called_with(expected_parquet_file)
         assert parquet_file == expected_parquet_file
 
 
-def test_remove_duplicates(sample_parquet_path, sample_df_with_duplicates):
+def test_remove_duplicates(sample_df_with_duplicates):
     with patch("pandas.read_parquet") as mock_read_parquet:
         mock_read_parquet.return_value = sample_df_with_duplicates
-        no_dups_df = remove_duplicates(sample_parquet_path, "id")
+        no_dups_df = remove_duplicates(sample_df_with_duplicates, "id")
         expected_df = pd.DataFrame(
             [
                 {
