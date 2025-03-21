@@ -1,3 +1,5 @@
+[![CI](https://github.com/Alvaro2c/sppd/actions/workflows/build.yml/badge.svg)](https://github.com/Alvaro2c/sppd/actions/workflows/build.yml)
+
 # SPPD Spanish Public Procurement Data
 
 ## Project Overview
