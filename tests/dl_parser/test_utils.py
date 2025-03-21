@@ -16,7 +16,6 @@ from src.dl_parser.utils import (
     delete_files,
     dl_parser,
     concat_parquet_files,
-    get_latest_codices,
 )
 import xml.etree.ElementTree as ET
 from unittest.mock import patch, mock_open, ANY
