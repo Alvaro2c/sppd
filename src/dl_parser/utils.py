@@ -432,3 +432,24 @@ def dl_parser(source_data: dict, selected_period: str, dup_strat: str, del_files
         delete_files(selected_period)
 
     return parquet_file
+
+
+def concat_parquet_files(folder_path: str, output_file: str) -> None:
+    """
+    Concatenates multiple parquet files from a specified folder into a single parquet file.
+
+    Args:
+        folder_path (str): The path to the folder containing the parquet files to concatenate.
+        output_file (str): The path where the concatenated parquet file will be saved.
+
+    Returns:
+        None: The function saves the concatenated parquet file to the specified output path.
+    """
+    parquet_files = get_full_paths(folder_path, extension=".parquet")
+
+    df_list = [pd.read_parquet(file) for file in parquet_files]
+    concatenated_df = pd.concat(df_list, ignore_index=True)
+
+    # Save the concatenated DataFrame to a new parquet file
+    concatenated_df.to_parquet(output_file, index=False)
+    print(f"Concatenated parquet file saved as '{output_file}'")

@@ -15,6 +15,7 @@ from src.dl_parser.utils import (
     remove_duplicates,
     delete_files,
     dl_parser,
+    concat_parquet_files
 )
 import xml.etree.ElementTree as ET
 from unittest.mock import patch, mock_open, ANY
@@ -190,7 +191,7 @@ def test_get_full_parquet(sample_period, tmp_path):
                 }
             ]
         )
-        parquet_file = get_full_parquet(sample_period, 'None', tmp_path)
+        parquet_file = get_full_parquet(sample_period, "None", tmp_path)
         expected_parquet_file = f"{tmp_path}/parquet/202101.parquet"
         mock_to_parquet.assert_called_with(expected_parquet_file)
         assert parquet_file == expected_parquet_file
@@ -250,3 +251,27 @@ def test_dl_parser(
         mock_remove_duplicates.assert_called_once_with(sample_parquet_path, "link")
         mock_delete_files.assert_called_once_with(sample_period)
         assert result == sample_parquet_path
+
+
+def test_concat_parquet_files(tmp_path, sample_df_with_duplicates):
+    df1 = sample_df_with_duplicates.copy()
+    df2 = sample_df_with_duplicates.copy()
+
+    # Create sample parquet files
+    df1.to_parquet(f"{tmp_path}/file1.parquet")
+    df2.to_parquet(f"{tmp_path}/file2.parquet")
+
+    output_file = f"{tmp_path}/output.parquet"
+
+    with patch('src.dl_parser.utils.get_full_paths') as mock_get_full_paths:
+        mock_get_full_paths.return_value = [
+            f"{tmp_path}/file1.parquet",
+            f"{tmp_path}/file2.parquet"
+        ]
+
+        concat_parquet_files(tmp_path, output_file)
+
+        # Verify the concatenated file
+        result_df = pd.read_parquet(output_file)
+        expected_df = pd.concat([df1, df2], ignore_index=True)
+        pd.testing.assert_frame_equal(result_df, expected_df)
