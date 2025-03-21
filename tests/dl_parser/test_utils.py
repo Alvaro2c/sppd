@@ -15,7 +15,8 @@ from src.dl_parser.utils import (
     remove_duplicates,
     delete_files,
     dl_parser,
-    concat_parquet_files
+    concat_parquet_files,
+    get_latest_codices,
 )
 import xml.etree.ElementTree as ET
 from unittest.mock import patch, mock_open, ANY
@@ -263,10 +264,10 @@ def test_concat_parquet_files(tmp_path, sample_df_with_duplicates):
 
     output_file = f"{tmp_path}/output.parquet"
 
-    with patch('src.dl_parser.utils.get_full_paths') as mock_get_full_paths:
+    with patch("src.dl_parser.utils.get_full_paths") as mock_get_full_paths:
         mock_get_full_paths.return_value = [
             f"{tmp_path}/file1.parquet",
-            f"{tmp_path}/file2.parquet"
+            f"{tmp_path}/file2.parquet",
         ]
 
         concat_parquet_files(tmp_path, output_file)

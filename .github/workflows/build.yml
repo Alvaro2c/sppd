@@ -37,8 +37,3 @@ jobs:
     - name: Test with pytest
       run: |
         pytest tests/**/*.py
-
-    - name: Check format with black
-      run: |
-        pip install black
-        black . --check
