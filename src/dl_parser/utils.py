@@ -4,8 +4,9 @@ import pandas as pd
 # web/xml scraping
 import requests
 import re
+import warnings
 import xml.etree.ElementTree as ET
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 
 # local file handling
 import zipfile
@@ -26,6 +27,7 @@ def get_soup(url: str) -> BeautifulSoup:
     Returns:
         BeautifulSoup: A BeautifulSoup object containing the parsed HTML content of the webpage.
     """
+    warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
     response = requests.get(url)
 
     return BeautifulSoup(response.text, "html.parser")
@@ -506,3 +508,28 @@ def get_latest_codices(codice_url: str) -> dict:
         latest_codices[base_name] = (codice, version)
 
     return latest_codices
+
+
+def get_codice_df(codice_direct_link: str) -> pd.DataFrame:
+    """
+    Get the codice dataframe from the direct link to the codice.
+
+    Args:
+        codice_direct_link (str): Direct link to the codice.
+    Returns:
+        codice_df (pd.DataFrame): DataFrame with the codice information.
+    """
+    codice_soup = get_soup(codice_direct_link)
+
+    # Get the rows as lists from the codice.
+    # Each row value is a tuple with the column reference and the value itself.
+    rows = [
+        [(value["columnref"], value.text.strip()) for value in row.find_all("value")]
+        for row in codice_soup.find_all("row")
+    ]
+
+    # Convert to DataFrame
+    codice_data = [dict(row) for row in rows]
+    codice_df = pd.DataFrame(codice_data)
+
+    return codice_df

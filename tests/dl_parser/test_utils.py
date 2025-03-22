@@ -16,6 +16,7 @@ from src.dl_parser.utils import (
     delete_files,
     dl_parser,
     concat_parquet_files,
+    get_codice_df
 )
 import xml.etree.ElementTree as ET
 from unittest.mock import patch, mock_open, ANY
@@ -275,3 +276,25 @@ def test_concat_parquet_files(tmp_path, sample_df_with_duplicates):
         result_df = pd.read_parquet(output_file)
         expected_df = pd.concat([df1, df2], ignore_index=True)
         pd.testing.assert_frame_equal(result_df, expected_df)
+
+
+def test_get_codice_df(sample_codice, sample_url):
+    with patch("src.dl_parser.utils.get_soup") as mock_get_soup:
+        mock_get_soup.return_value = BeautifulSoup(sample_codice, "html.parser")
+        df = get_codice_df(sample_url)
+
+        expected_data = [
+            {
+                "code": "OBJ",
+                "nombre": "Cuantificables Automáticamente",
+                "name": "Automatically evaluated"
+                },
+            {
+                "code": "SUBJ",
+                "nombre": "Juicio de Valor",
+                "name": "Not automatically evaluated"
+                }
+        ]
+        expected_df = pd.DataFrame(expected_data)
+
+        pd.testing.assert_frame_equal(df, expected_df)

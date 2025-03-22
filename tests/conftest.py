@@ -96,3 +96,33 @@ def sample_parquet_path():
 @pytest.fixture
 def mock_source_data():
     return {"2023": "url1", "2022": "url2", "202301": "url3", "202302": "url4"}
+
+
+@pytest.fixture
+def sample_codice():
+    return """
+    <SimpleCodeList>
+        <Row>
+        <Value ColumnRef="code">
+            <SimpleValue>OBJ</SimpleValue>
+        </Value>
+        <Value ColumnRef="nombre">
+            <SimpleValue>Cuantificables Autom&#225;ticamente</SimpleValue>
+        </Value>
+        <Value ColumnRef="name">
+            <SimpleValue>Automatically evaluated</SimpleValue>
+        </Value>
+        </Row>
+        <Row>
+        <Value ColumnRef="code">
+            <SimpleValue>SUBJ</SimpleValue>
+        </Value>
+        <Value ColumnRef="nombre">
+            <SimpleValue>Juicio de Valor</SimpleValue>
+        </Value>
+        <Value ColumnRef="name">
+            <SimpleValue>Not automatically evaluated</SimpleValue>
+        </Value>
+        </Row>
+    </SimpleCodeList>
+    """
