@@ -4,7 +4,6 @@ from src.dl_parser.utils import (
     flatten_dict,
     get_source_data,
     recursive_field_dict,
-    recursive_find_value,
     get_atom_data,
     get_df,
     download_and_extract_zip,
@@ -71,12 +70,6 @@ def test_recursive_field_dict():
     recursive_field_dict(root, field_dict)
     expected_dict = {"child1": "value1", "child2": {"subchild": "value2"}}
     assert field_dict == expected_dict
-
-
-def test_recursive_find_value(sample_nested_dict):
-    tag, value = recursive_find_value("c", sample_nested_dict)
-    assert tag == "c"
-    assert value == 1
 
 
 def test_get_atom_data(sample_atom_content):

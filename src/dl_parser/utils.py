@@ -76,30 +76,6 @@ def recursive_field_dict(field, field_dict: dict):
                 recursive_field_dict(child, field_dict[tag])
 
 
-def recursive_find_value(tag: str, dictionary: dict) -> tuple:
-    """
-    Recursively searches for a given tag (key) in a nested dictionary and returns a tuple containing it and its value.
-
-    Args:
-        tag (str): The key to search for in the dictionary.
-        dictionary (dict): The dictionary to search within, which may contain nested dictionaries.
-
-    Returns:
-        tuple: A tuple containing the tag and its corresponding value if found.
-        None: If the tag is not found in the dictionary.
-    """
-    if tag in dictionary:
-        return tag, dictionary[tag]
-    else:
-        for key, value in dictionary.items():
-            if isinstance(value, dict):
-                result = recursive_find_value(tag, value)
-                if result:
-                    return result
-                else:
-                    pass
-
-
 def flatten_dict(d: dict, parent_key="", sep=".") -> dict:
     """
     Flattens a nested dictionary by concatenating keys with a specified separator.
