@@ -103,24 +103,24 @@ def sample_codice():
     return """
     <SimpleCodeList>
         <Row>
-        <Value ColumnRef="code">
+        <Value columnref="code">
             <SimpleValue>OBJ</SimpleValue>
         </Value>
-        <Value ColumnRef="nombre">
+        <Value columnref="nombre">
             <SimpleValue>Cuantificables Autom&#225;ticamente</SimpleValue>
         </Value>
-        <Value ColumnRef="name">
+        <Value columnref="name">
             <SimpleValue>Automatically evaluated</SimpleValue>
         </Value>
         </Row>
         <Row>
-        <Value ColumnRef="code">
+        <Value columnref="code">
             <SimpleValue>SUBJ</SimpleValue>
         </Value>
-        <Value ColumnRef="nombre">
+        <Value columnref="nombre">
             <SimpleValue>Juicio de Valor</SimpleValue>
         </Value>
-        <Value ColumnRef="name">
+        <Value columnref="name">
             <SimpleValue>Not automatically evaluated</SimpleValue>
         </Value>
         </Row>

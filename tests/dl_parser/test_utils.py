@@ -15,8 +15,6 @@ from src.dl_parser.utils import (
     remove_duplicates,
     delete_files,
     dl_parser,
-    concat_parquet_files,
-    get_codice_df
 )
 import xml.etree.ElementTree as ET
 from unittest.mock import patch, mock_open, ANY
@@ -97,9 +95,9 @@ def test_get_atom_data(sample_atom_content):
         assert ns[""] == "http://www.w3.org/2005/Atom"
 
 
-def test_get_df(sample_entries, sample_mappings):
+def test_get_df(sample_entries):
     sample_ns = {"cac-place-ext": "http://www.w3.org/2005/Atom"}
-    df = get_df(sample_entries, sample_ns, sample_mappings)
+    df = get_df(sample_entries, sample_ns)
     expected_df = pd.DataFrame(
         [
             {
@@ -140,7 +138,7 @@ def test_get_full_paths(sample_folder):
         assert full_paths == expected_paths
 
 
-def test_get_concat_dfs(sample_mappings):
+def test_get_concat_dfs():
     sample_paths = ["data/202101/file1.xml", "data/202101/file2.xml"]
     with patch("src.dl_parser.utils.get_atom_data") as mock_get_atom_data, patch(
         "src.dl_parser.utils.get_df"
@@ -155,7 +153,7 @@ def test_get_concat_dfs(sample_mappings):
                 }
             ]
         )
-        df = get_concat_dfs(sample_paths, sample_mappings)
+        df = get_concat_dfs(sample_paths)
         expected_df = pd.DataFrame(
             [
                 {
@@ -192,7 +190,7 @@ def test_get_full_parquet(sample_period, tmp_path):
                 }
             ]
         )
-        parquet_file = get_full_parquet(sample_period, "None", tmp_path)
+        parquet_file = get_full_parquet(sample_period, tmp_path)
         expected_parquet_file = f"{tmp_path}/parquet/202101.parquet"
         mock_to_parquet.assert_called_with(expected_parquet_file)
         assert parquet_file == expected_parquet_file
@@ -225,76 +223,22 @@ def test_delete_files(sample_period, tmp_path):
         mock_rmdir.assert_called_with(f"{tmp_path}/{sample_period}")
 
 
-def test_dl_parser(
-    sample_source_data, sample_period, sample_df_with_duplicates, sample_parquet_path
-):
+def test_dl_parser(sample_source_data, sample_period, sample_parquet_path):
 
     with patch(
         "src.dl_parser.utils.download_and_extract_zip"
     ) as mock_download_and_extract_zip, patch(
         "src.dl_parser.utils.get_full_parquet"
     ) as mock_get_full_parquet, patch(
-        "src.dl_parser.utils.remove_duplicates"
-    ) as mock_remove_duplicates, patch(
         "src.dl_parser.utils.delete_files"
     ) as mock_delete_files:
         mock_get_full_parquet.return_value = sample_parquet_path
-        mock_remove_duplicates.return_value = sample_df_with_duplicates
 
-        result = dl_parser(
-            sample_source_data, sample_period, dup_strat="link", del_files="Y"
-        )
+        result = dl_parser(sample_source_data, [sample_period], del_files="Y")
 
         mock_download_and_extract_zip.assert_called_once_with(
             sample_source_data, sample_period
         )
         mock_get_full_parquet.assert_called_once_with(sample_period)
-        mock_remove_duplicates.assert_called_once_with(sample_parquet_path, "link")
         mock_delete_files.assert_called_once_with(sample_period)
-        assert result == sample_parquet_path
-
-
-def test_concat_parquet_files(tmp_path, sample_df_with_duplicates):
-    df1 = sample_df_with_duplicates.copy()
-    df2 = sample_df_with_duplicates.copy()
-
-    # Create sample parquet files
-    df1.to_parquet(f"{tmp_path}/file1.parquet")
-    df2.to_parquet(f"{tmp_path}/file2.parquet")
-
-    output_file = f"{tmp_path}/output.parquet"
-
-    with patch("src.dl_parser.utils.get_full_paths") as mock_get_full_paths:
-        mock_get_full_paths.return_value = [
-            f"{tmp_path}/file1.parquet",
-            f"{tmp_path}/file2.parquet",
-        ]
-
-        concat_parquet_files(tmp_path, output_file)
-
-        # Verify the concatenated file
-        result_df = pd.read_parquet(output_file)
-        expected_df = pd.concat([df1, df2], ignore_index=True)
-        pd.testing.assert_frame_equal(result_df, expected_df)
-
-
-def test_get_codice_df(sample_codice, sample_url):
-    with patch("src.dl_parser.utils.get_soup") as mock_get_soup:
-        mock_get_soup.return_value = BeautifulSoup(sample_codice, "html.parser")
-        df = get_codice_df(sample_url)
-
-        expected_data = [
-            {
-                "code": "OBJ",
-                "nombre": "Cuantificables Automáticamente",
-                "name": "Automatically evaluated"
-                },
-            {
-                "code": "SUBJ",
-                "nombre": "Juicio de Valor",
-                "name": "Not automatically evaluated"
-                }
-        ]
-        expected_df = pd.DataFrame(expected_data)
-
-        pd.testing.assert_frame_equal(df, expected_df)
+        assert result == [sample_parquet_path]

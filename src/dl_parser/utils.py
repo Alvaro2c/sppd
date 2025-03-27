@@ -4,9 +4,7 @@ import pandas as pd
 # web/xml scraping
 import requests
 import re
-import warnings
 import xml.etree.ElementTree as ET
-from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 
 # local file handling
 import zipfile
@@ -14,23 +12,8 @@ import io
 import os
 from tqdm import tqdm
 
-from src.dl_parser.mappings import mappings
-
-
-def get_soup(url: str) -> BeautifulSoup:
-    """
-    Fetches the HTML content from the given URL and returns a BeautifulSoup object.
-
-    Args:
-        url (str): The URL of the webpage to fetch.
-
-    Returns:
-        BeautifulSoup: A BeautifulSoup object containing the parsed HTML content of the webpage.
-    """
-    warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
-    response = requests.get(url)
-
-    return BeautifulSoup(response.text, "html.parser")
+# Common utils
+from src.common.utils import get_soup, get_folder_path, get_full_paths
 
 
 def extract_digits_from_url(url):
@@ -172,7 +155,7 @@ def get_atom_data(xml_file) -> tuple:
     return entries, ns
 
 
-def get_df(entries: list, ns: dict, mappings: dict) -> pd.DataFrame:
+def get_df(entries: list, ns: dict) -> pd.DataFrame:
     """
     Extracts the main information from the entries of the ATOM file and returns a DataFrame with the data.
 
@@ -201,13 +184,7 @@ def get_df(entries: list, ns: dict, mappings: dict) -> pd.DataFrame:
         if details:
             recursive_field_dict(details, details_dict)
             flat_details = flatten_dict(details_dict)
-
-            # Add specific information to entry data
-            for k, v in mappings.items():
-                try:
-                    entry_data[k] = recursive_find_value(v, flat_details)[1]
-                except TypeError:
-                    entry_data[k] = None
+            entry_data.update(flat_details)
 
         # Pop columns that are no longer needed
         pop_cols = ["summary", "ContractFolderStatus"]
@@ -254,52 +231,13 @@ def download_and_extract_zip(source_data: dict, period: str, data_path: str = "d
         print(f"{files_in_folder} ATOM files were downloaded.")
 
 
-def get_folder_path(period: str, data_path: str = "data"):
-    """
-    This function receives the period for which the data is downloaded.
-    It returns the path to the folder where the data is downloaded.
-    If the folder does not exist, it creates it.
-
-    Parameters:
-    period (str): The period for which the data is downloaded.
-    data_path(str): The path to the data folder.
-
-    Returns:
-    str: The path to the folder where the data is downloaded.
-    """
-
-    folder = os.path.join(data_path, period)
-    os.makedirs(folder, exist_ok=True)
-
-    return folder
-
-
-def get_full_paths(folder: str):
-    """
-    This function receives the folder path where the data is downloaded.
-    It returns a list with the full paths of the files in the folder.
-
-    Parameters:
-    folder (str): The path to the folder where the data is downloaded.
-
-    Returns:
-    list: A list with the full paths of the files in the folder.
-    """
-    files = os.listdir(folder)
-    full_paths = [os.path.join(folder, file) for file in files]
-    full_paths.sort()
-
-    return full_paths
-
-
-def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
+def get_concat_dfs(paths: list) -> pd.DataFrame:
     """
     This function receives a list of full paths to the files with the data.
     It returns a DataFrame with the data from all the files.
 
     Parameters:
     paths (list): A list with the full paths to the files with the data.
-    mappings (dict): Dictionary mapping the desired DataFrame column names to the corresponding ATOM tags.
 
     Returns:
     DataFrame: A DataFrame with the data from all the files.
@@ -308,7 +246,7 @@ def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
     with tqdm(total=len(paths), desc="Parsing files", unit="file") as pbar:
         for path in paths:
             entries, ns = get_atom_data(path)
-            df = get_df(entries, ns, mappings)
+            df = get_df(entries, ns)
             dfs.append(df)
             pbar.update(1)
 
@@ -317,18 +255,16 @@ def get_concat_dfs(paths: list, mappings: dict) -> pd.DataFrame:
     return final_df
 
 
-def get_full_parquet(period: str, dup_strategy: str, data_path: str = "data"):
+def get_full_parquet(period: str, data_path: str = "data"):
     """
     Generates a full parquet file for the given period.
     This function performs the following steps:
     1. Retrieves the folder path for the specified period.
     2. Obtains the full paths of files within the folder.
     3. Concatenates the dataframes from the full paths.
-    4. Applies a duplicate handling strategy to the concatenated dataframe.
-    5. Saves the concatenated dataframe as a parquet file in the specified directory.
+    4. Saves the concatenated dataframe as a parquet file in the specified directory.
     Args:
         period (str): The period for which the parquet file is to be generated.
-        dup_strategy (str): The strategy to handle duplicates.
         data_path (str): The path to the data folder. Defaults to 'data'.
     Returns:
         parquet_file (str): parquet_file path for the generated parquet file.
@@ -340,9 +276,7 @@ def get_full_parquet(period: str, dup_strategy: str, data_path: str = "data"):
 
     folder = get_folder_path(period, data_path)
     full_paths = get_full_paths(folder)
-    dfs = get_concat_dfs(full_paths, mappings)
-
-    dfs = remove_duplicates(dfs, dup_strategy)
+    dfs = get_concat_dfs(full_paths)
 
     dfs.to_parquet(parquet_file)
 
@@ -416,120 +350,26 @@ def delete_files(period: str, data_path: str = "data"):
         raise FileNotFoundError(f"The files for period {period} does not exist.")
 
 
-def dl_parser(source_data: dict, selected_period: str, dup_strat: str, del_files: str):
+def dl_parser(source_data: dict, selected_periods: str, del_files: str):
     """
     Main function to download, process, and save data for a specified period.
 
     Args:
     source_data (dict): Dictionary with periods as keys and URLs as values.
     selected_period (str): The period for which the data is to be processed.
-    dup_strat (str): The strategy to handle duplicates.
     del_files (str): Whether to delete the downloaded files after processing.
     """
 
-    download_and_extract_zip(source_data, selected_period)
-    parquet_file = get_full_parquet(selected_period)
-    remove_duplicates(parquet_file, dup_strat)
+    for selected_period in selected_periods:
+        download_and_extract_zip(source_data, selected_period)
+
+    parquet_files = []
+    for selected_period in selected_periods:
+        parquet_file = get_full_parquet(selected_period)
+        parquet_files.append(parquet_file)
+
     if del_files == "Y":
-        delete_files(selected_period)
+        for selected_period in selected_periods:
+            delete_files(selected_period)
 
-    return parquet_file
-
-
-def concat_parquet_files(folder_path: str, output_file: str) -> None:
-    """
-    Concatenates multiple parquet files from a specified folder into a single parquet file.
-
-    Args:
-        folder_path (str): The path to the folder containing the parquet files to concatenate.
-        output_file (str): The path where the concatenated parquet file will be saved.
-
-    Returns:
-        None: The function saves the concatenated parquet file to the specified output path.
-    """
-    parquet_files = get_full_paths(folder_path, extension=".parquet")
-
-    df_list = [pd.read_parquet(file) for file in parquet_files]
-    concatenated_df = pd.concat(df_list, ignore_index=True)
-
-    # Save the concatenated DataFrame to a new parquet file
-    concatenated_df.to_parquet(output_file, index=False)
-    print(f"Concatenated parquet file saved as '{output_file}'")
-
-
-def get_latest_codices(codice_url: str) -> dict:
-    """
-    Get the latest version of all codices from the given URL.
-    Currently: "https://contrataciondelestado.es/codice/cl/"
-
-    Args:
-        codice_url (str): URL to the codice website.
-
-    Returns:
-        Dictionary with the latest version of each codice.
-    """
-
-    codice_soup = get_soup(codice_url)
-    # import pdb
-    # pdb.set_trace()
-    # Get all codice versions directories
-    codice_versions = [
-        codice_url + a.text
-        for a in codice_soup.find_all("a")
-        if not any(char.isalpha() for char in a.text)
-    ]
-
-    # Get all codices, regardless of version
-    all_codices = []
-
-    for version in codice_versions:
-        version_soup = get_soup(version)
-        codices = [
-            version + a["href"]
-            for a in version_soup.find_all("a", href=True)
-            if a["href"].endswith(".gc")
-        ]
-        all_codices.extend(codices)
-
-    # Parse codice URL to get base name and version
-    def parse_codice_url(url):
-        filename = url.split("/")[-1]
-        base_name = (
-            filename.split("-")[0] if "-" in filename else filename.split(".gc")[0]
-        )
-        version = filename.split("-")[-1].split(".gc")[0] if "-" in filename else "1"
-        return base_name, version
-
-    # Process all codices and keep only latest versions
-    latest_codices = {}
-
-    for codice in all_codices:
-        base_name, version = parse_codice_url(codice)
-        latest_codices[base_name] = (codice, version)
-
-    return latest_codices
-
-
-def get_codice_df(codice_direct_link: str) -> pd.DataFrame:
-    """
-    Get the codice dataframe from the direct link to the codice.
-
-    Args:
-        codice_direct_link (str): Direct link to the codice.
-    Returns:
-        codice_df (pd.DataFrame): DataFrame with the codice information.
-    """
-    codice_soup = get_soup(codice_direct_link)
-
-    # Get the rows as lists from the codice.
-    # Each row value is a tuple with the column reference and the value itself.
-    rows = [
-        [(value["columnref"], value.text.strip()) for value in row.find_all("value")]
-        for row in codice_soup.find_all("row")
-    ]
-
-    # Convert to DataFrame
-    codice_data = [dict(row) for row in rows]
-    codice_df = pd.DataFrame(codice_data)
-
-    return codice_df
+    return parquet_files
