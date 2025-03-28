@@ -126,3 +126,22 @@ def sample_codice():
         </Row>
     </SimpleCodeList>
     """
+
+
+@pytest.fixture
+def sample_df_for_mapping():
+    return pd.DataFrame(
+        [
+            {
+                "original_title": "Example Title",
+                "original_link": "http://example.com",
+                "original_date": "2023-01-01",
+                "extra_field": "should be removed",
+            }
+        ]
+    )
+
+
+@pytest.fixture
+def sample_mapping_dict():
+    return {"original_title": "title", "original_link": "link", "original_date": "date"}

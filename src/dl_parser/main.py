@@ -46,17 +46,53 @@ def main():
 
     selected_periods = prompt_for_period()
 
-    for selected_period in selected_periods:
-        if selected_period not in periods:
-            print(
-                "\nSorry, incorrect input. Please type one of the mentioned.\n\n-----------------\n"
-            )
-            selected_periods = prompt_for_period()
+    while not all(selected_period in periods for selected_period in selected_periods):
+        print(
+            "\nSorry, some of the entered periods are incorrect. Please select correct one(s).\n\n-----------------\n"
+        )
+        selected_periods = prompt_for_period()
+
+    def prompt_for_duplicate_strategy():
+        return input(
+            f"""
+        You chose {selected_periods}.
+        Type a duplicate removal strategy (type 'None' to keep the full raw data).
+        1. 'id'
+        2. 'title'
+        3. 'link' (recommended)
+        4. 'None'
+        \n
+        """
+        )
+
+    dup_strategy = prompt_for_duplicate_strategy()
+
+    while dup_strategy not in ["id", "title", "link", "None"]:
+        print(
+            "\nSorry, incorrect input. Please select one of the mentioned strategies.\n"
+        )
+        dup_strategy = prompt_for_duplicate_strategy()
+
+    def prompt_for_mapping_application():
+        return input(
+            f"""
+        You chose {selected_periods} and the following duplicate removal strategy: {dup_strategy}.
+        Do you want to apply the mapping to the data? Select N to keep the raw data.
+        (Y/N)\n
+        """
+        )
+
+    apply_mapping = prompt_for_mapping_application()
+
+    while apply_mapping not in yes_or_no:
+        print("\nSorry, incorrect input. Please select yes (Y) or no (N).\n")
+        apply_mapping = prompt_for_mapping_application()
 
     def prompt_for_file_handling():
         return input(
             f"""
-        You chose {selected_periods}.
+        You chose {selected_periods}, the following duplicate removal strategy: {dup_strategy},
+        and the following mapping application: {apply_mapping}.
         Do you want to delete the downloaded ATOM files after parsing? (Y/N)\n
         """
         )
@@ -73,6 +109,8 @@ def main():
         You chose the following options:
         Period(s): {selected_periods}
         Delete downloaded files: {del_files}
+        Duplicate removal strategy: {dup_strategy}
+        Apply mapping: {apply_mapping}
 
         Each period will be downloaded and parsed into a parquet file.
 
@@ -93,6 +131,8 @@ def main():
         parquet_files = dl_parser(
             source_data=source_data,
             selected_periods=selected_periods,
+            dup_strategy=dup_strategy,
+            apply_mapping=apply_mapping,
             del_files=del_files,
         )
 

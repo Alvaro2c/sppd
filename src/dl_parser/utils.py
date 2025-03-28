@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 # Common utils
 from src.common.utils import get_soup, get_folder_path, get_full_paths
+from src.dl_parser.mappings import mappings
 
 
 def extract_digits_from_url(url):
@@ -231,19 +232,31 @@ def get_concat_dfs(paths: list) -> pd.DataFrame:
     return final_df
 
 
-def get_full_parquet(period: str, data_path: str = "data"):
+def get_full_parquet(
+    period: str,
+    dup_strategy: str = "None",
+    apply_mapping: str = "N",
+    data_path: str = "data",
+) -> str:
     """
-    Generates a full parquet file for the given period.
+    Generates a full parquet file for the given period by processing and consolidating data.
+
     This function performs the following steps:
     1. Retrieves the folder path for the specified period.
     2. Obtains the full paths of files within the folder.
-    3. Concatenates the dataframes from the full paths.
-    4. Saves the concatenated dataframe as a parquet file in the specified directory.
+    3. Parses and concatenates the dataframes from the full paths.
+    4. Removes duplicates based on the specified strategy.
+    5. Optionally applies column mappings to the dataframe.
+    6. Saves the processed dataframe as a parquet file in the specified directory.
+
     Args:
         period (str): The period for which the parquet file is to be generated.
+        dup_strategy (str): The strategy to use for removing duplicates: 'id', 'link', 'title', or 'None'.
+        apply_mapping (str): Whether to apply column mappings ('Y' for yes, 'N' for no).
         data_path (str): The path to the data folder. Defaults to 'data'.
+
     Returns:
-        parquet_file (str): parquet_file path for the generated parquet file.
+        str: The path to the generated parquet file.
     """
 
     folder_parquet = get_folder_path("parquet", data_path)
@@ -254,7 +267,12 @@ def get_full_parquet(period: str, data_path: str = "data"):
     full_paths = get_full_paths(folder)
     dfs = get_concat_dfs(full_paths)
 
-    dfs.to_parquet(parquet_file)
+    dfs = remove_duplicates(dfs, dup_strategy)
+
+    if apply_mapping == "Y":
+        dfs = apply_mappings(dfs, mappings)
+
+    dfs.to_parquet(parquet_file, engine="pyarrow")
 
     print(
         f"Parsed and created parquet file for {period} with {dfs.shape[0]} rows and {dfs.shape[1]} columns."
@@ -305,6 +323,28 @@ def remove_duplicates(df: str, strategy: str) -> pd.DataFrame:
     return no_dups_df
 
 
+def apply_mappings(df: pd.DataFrame, mappings: dict) -> pd.DataFrame:
+    """
+    Applies mappings to the DataFrame columns based on the mappings dictionary.
+
+    Args:
+    df (pd.DataFrame): The DataFrame to which the mappings will be applied.
+    mappings (dict): The dictionary with the mappings to be applied.
+
+    Returns:
+    pd.DataFrame: The DataFrame with the mappings applied.
+    """
+
+    # Select only the columns that correspond to the values in the mappings dictionary
+    selected_columns = {k: v for k, v in mappings.items() if k in df.columns}
+    mapped_df = df[selected_columns.keys()].copy()
+
+    # Rename the columns to the corresponding keys in the mappings dictionary
+    mapped_df.rename(columns=selected_columns, inplace=True)
+
+    return mapped_df
+
+
 def delete_files(period: str, data_path: str = "data"):
     """
     Deletes the folder with the given period name inside the data folder.
@@ -326,7 +366,13 @@ def delete_files(period: str, data_path: str = "data"):
         raise FileNotFoundError(f"The files for period {period} does not exist.")
 
 
-def dl_parser(source_data: dict, selected_periods: str, del_files: str):
+def dl_parser(
+    source_data: dict,
+    selected_periods: str,
+    dup_strategy: str,
+    apply_mapping: str,
+    del_files: str,
+):
     """
     Main function to download, process, and save data for a specified period.
 
@@ -341,7 +387,11 @@ def dl_parser(source_data: dict, selected_periods: str, del_files: str):
 
     parquet_files = []
     for selected_period in selected_periods:
-        parquet_file = get_full_parquet(selected_period)
+        parquet_file = get_full_parquet(
+            period=selected_period,
+            dup_strategy=dup_strategy,
+            apply_mapping=apply_mapping,
+        )
         parquet_files.append(parquet_file)
 
     if del_files == "Y":

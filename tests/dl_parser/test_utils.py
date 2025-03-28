@@ -12,6 +12,7 @@ from src.dl_parser.utils import (
     get_concat_dfs,
     get_full_parquet,
     remove_duplicates,
+    apply_mappings,
     delete_files,
     dl_parser,
 )
@@ -183,9 +184,14 @@ def test_get_full_parquet(sample_period, tmp_path):
                 }
             ]
         )
-        parquet_file = get_full_parquet(sample_period, tmp_path)
+        parquet_file = get_full_parquet(
+            period=sample_period,
+            dup_strategy="None",
+            apply_mapping=False,
+            data_path=tmp_path,
+        )
         expected_parquet_file = f"{tmp_path}/parquet/202101.parquet"
-        mock_to_parquet.assert_called_with(expected_parquet_file)
+        mock_to_parquet.assert_called_with(expected_parquet_file, engine="pyarrow")
         assert parquet_file == expected_parquet_file
 
 
@@ -227,11 +233,35 @@ def test_dl_parser(sample_source_data, sample_period, sample_parquet_path):
     ) as mock_delete_files:
         mock_get_full_parquet.return_value = sample_parquet_path
 
-        result = dl_parser(sample_source_data, [sample_period], del_files="Y")
+        result = dl_parser(
+            sample_source_data,
+            [sample_period],
+            dup_strategy="None",
+            apply_mapping="N",
+            del_files="Y",
+        )
 
         mock_download_and_extract_zip.assert_called_once_with(
             sample_source_data, sample_period
         )
-        mock_get_full_parquet.assert_called_once_with(sample_period)
+        mock_get_full_parquet.assert_called_once_with(
+            period=sample_period, dup_strategy="None", apply_mapping="N"
+        )
         mock_delete_files.assert_called_once_with(sample_period)
         assert result == [sample_parquet_path]
+
+
+def test_apply_mappings(sample_df_for_mapping, sample_mapping_dict):
+    result_df = apply_mappings(sample_df_for_mapping, sample_mapping_dict)
+
+    # Check that columns were correctly renamed
+    expected_columns = ["title", "link", "date"]
+    assert list(result_df.columns) == expected_columns
+
+    # Check that data is preserved
+    assert result_df.iloc[0]["title"] == "Example Title"
+    assert result_df.iloc[0]["link"] == "http://example.com"
+    assert result_df.iloc[0]["date"] == "2023-01-01"
+
+    # Check that extra columns were removed
+    assert "extra_field" not in result_df.columns
