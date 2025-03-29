@@ -2,6 +2,7 @@ from src.db_init.utils import concat_parquet_files
 from unittest.mock import patch
 import pandas as pd
 
+
 def test_concat_parquet_files(tmp_path, sample_df_with_duplicates):
     df1 = sample_df_with_duplicates
     df2 = sample_df_with_duplicates

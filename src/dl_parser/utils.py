@@ -17,7 +17,7 @@ import gc
 from src.common.utils import get_soup, get_folder_path, get_full_paths
 from src.dl_parser.mappings import mappings
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor
 import time
 
 
@@ -261,6 +261,7 @@ def _process_batch(paths_batch, batch_num, tmp_dir):
         df.to_parquet(batch_file, index=False)
         return len(results)
     return 0
+
 
 def get_concat_df(paths: list, raw_data_path: str) -> pd.DataFrame:
     """
