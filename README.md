@@ -9,12 +9,12 @@ The official source of the data is the [Spanish Ministry of Finance](https://www
 
 ## Current Version
 
-**Version:** 0.1.0
+**Version:** 0.2.0
 
 
 ## Project Status
 
-Currently the downloader and parser (dl_parser module) is fully functional.
+Currently the downloader and parser (dl_parser module) is fully functional, now implemented with parallel and batch processing for speed, stability and scalability.
 
 ## Upcoming Features
 
