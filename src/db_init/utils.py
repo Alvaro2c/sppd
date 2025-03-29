@@ -1,5 +1,5 @@
-import polars as pl
 from src.common.utils import get_full_paths, get_soup
+import pandas as pd
 
 
 def concat_parquet_files(folder_path: str, output_file: str) -> None:
@@ -14,8 +14,8 @@ def concat_parquet_files(folder_path: str, output_file: str) -> None:
         None: The function saves the concatenated parquet file to the specified output path.
     """
     parquet_files = get_full_paths(folder_path)
-    concatenated_df = pl.concat([pl.read_parquet(file) for file in parquet_files])
-    concatenated_df.write_parquet(output_file)
+    concatenated_df = pd.concat([pd.read_parquet(file) for file in parquet_files])
+    concatenated_df.to_parquet(output_file)
     print(f"Concatenated parquet file saved as '{output_file}'")
 
     return output_file
@@ -73,14 +73,14 @@ def get_latest_codices(codice_url: str) -> dict:
     return latest_codices
 
 
-def get_codice_df(codice_direct_link: str) -> pl.DataFrame:
+def get_codice_df(codice_direct_link: str) -> pd.DataFrame:
     """
     Get the codice dataframe from the direct link to the codice.
 
     Args:
         codice_direct_link (str): Direct link to the codice.
     Returns:
-        codice_df (pl.DataFrame): DataFrame with the codice information.
+        codice_df (pd.DataFrame): DataFrame with the codice information.
     """
     codice_soup = get_soup(codice_direct_link)
 
@@ -93,4 +93,4 @@ def get_codice_df(codice_direct_link: str) -> pl.DataFrame:
 
     # Convert to DataFrame
     codice_data = [dict(row) for row in rows]
-    return pl.DataFrame(codice_data)
+    return pd.DataFrame(codice_data)
