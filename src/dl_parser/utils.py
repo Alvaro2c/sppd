@@ -282,7 +282,7 @@ def get_concat_df(paths: list, raw_data_path: str) -> pd.DataFrame:
     total_records = 0
 
     for i in tqdm(range(0, len(paths), batch_size), desc="Processing batches", unit="batch"):
-        batch_paths = paths[i:i + batch_size]
+        batch_paths = paths[i:i + batch_size]  # noqa: E203
         records = _process_batch(batch_paths, i // batch_size, tmp_dir)
         total_records += records
 
