@@ -63,13 +63,13 @@ def sample_df_with_duplicates():
     return pd.DataFrame(
         [
             {
-                "id": 1,
+                "id": "1",
                 "link": "http://example.com",
                 "title": "Example Entry",
                 "updated": "2023-01-01T00:00:00Z",
             },
             {
-                "id": 1,
+                "id": "1",
                 "link": "http://example.com",
                 "title": "Example Entry",
                 "updated": "2023-01-02T00:00:00Z",
@@ -145,3 +145,14 @@ def sample_df_for_mapping():
 @pytest.fixture
 def sample_mapping_dict():
     return {"original_title": "title", "original_link": "link", "original_date": "date"}
+
+
+@pytest.fixture
+def sample_data_list():
+    return [
+        {
+            "title": "Example Entry",
+            "link": "http://example.com",
+            "updated": "2023-01-01T00:00:00Z",
+        }
+    ]

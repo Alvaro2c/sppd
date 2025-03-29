@@ -20,7 +20,7 @@ def get_soup(url: str) -> BeautifulSoup:
     return BeautifulSoup(response.text, "html.parser")
 
 
-def get_folder_path(period: str, data_path: str = "data"):
+def get_folder_path(period: str, data_path: str) -> str:
     """
     This function receives the period for the data you are manipulating.
     It returns the path to the folder where the data is or should be.

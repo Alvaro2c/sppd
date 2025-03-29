@@ -11,10 +11,14 @@ import zipfile
 import io
 import os
 from tqdm import tqdm
+import gc
 
 # Common utils
 from src.common.utils import get_soup, get_folder_path, get_full_paths
 from src.dl_parser.mappings import mappings
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import time
 
 
 def extract_digits_from_url(url):
@@ -132,17 +136,16 @@ def get_atom_data(xml_file) -> tuple:
     return entries, ns
 
 
-def get_df(entries: list, ns: dict) -> pd.DataFrame:
+def get_data_list(entries: list, ns: dict) -> list:
     """
-    Extracts the main information from the entries of the ATOM file and returns a DataFrame with the data.
+    Extracts the main information from the entries of the ATOM file and returns a list of dictionaries.
 
-    Parameters:
-    entries (list): List of ATOML elements representing the entries.
-    ns (dict): Dictionary of namespaces used in the ATOM file.
-    mapping (dict): Dictionary mapping the desired DataFrame column names to the corresponding ATOM tags.
+    Args:
+        entries (list): List of ATOM elements representing the entries.
+        ns (dict): Dictionary of namespaces used in the ATOM file.
 
     Returns:
-    pd.DataFrame: DataFrame containing the extracted data.
+        list: A list of dictionaries, where each dictionary contains the extracted data for an entry.
     """
     data = []
 
@@ -171,12 +174,12 @@ def get_df(entries: list, ns: dict) -> pd.DataFrame:
 
         data.append(entry_data)
 
-    df = pd.DataFrame(data)
-
-    return df
+    return data
 
 
-def download_and_extract_zip(source_data: dict, period: str, data_path: str = "data"):
+def download_and_extract_zip(
+    source_data: dict, period: str, data_path: str = "data/raw/atom"
+):
     """
     This function receives a dictionary of source data per period and the selected period.
     It downloads the documents inside a folder named after the period.
@@ -184,16 +187,25 @@ def download_and_extract_zip(source_data: dict, period: str, data_path: str = "d
     Parameters:
     source_data (dict): Dictionary with periods as keys and URLs as values.
     period (int): The selected period for which the data needs to be downloaded.
-    data_path (str): The path to the data folder. Defaults to 'data'.
+    data_path (str): The path to the data folder. Defaults to 'data/raw/atom'.
     """
     if period not in source_data.keys():
         raise ValueError(f"The period {period} is not available in the source data.")
-    else:
-        zip_url = source_data[period]
-        folder = get_folder_path(period, data_path)
-        print(f"Requesting zip file from {period}...")
-        response = requests.get(zip_url)
-        with zipfile.ZipFile(io.BytesIO(response.content)) as atomzip:
+
+    zip_url = source_data[period]
+    folder = get_folder_path(period, data_path)
+    print(f"\nRequesting zip file from {period}...")
+
+    start_time = time.time()
+    response = requests.get(zip_url)
+    elapsed_time = time.time() - start_time
+    minutes, seconds = divmod(elapsed_time, 60)
+    print(f"Download took {int(minutes)} minutes and {int(seconds)} seconds.")
+    response.raise_for_status()  # Raise an error for bad status codes
+
+    # Use an in-memory buffer for the zip file
+    with io.BytesIO(response.content) as temp_file:
+        with zipfile.ZipFile(temp_file) as atomzip:
             atom_files = atomzip.infolist()
             total_size = sum(file.file_size for file in atom_files)
 
@@ -204,30 +216,87 @@ def download_and_extract_zip(source_data: dict, period: str, data_path: str = "d
                     atomzip.extract(member=file, path=folder)
                     pbar.update(file.file_size)
 
-        files_in_folder = len(os.listdir(folder))
-        print(f"{files_in_folder} ATOM files were downloaded.")
+    # Explicitly delete the response and buffer to free memory
+    del response
+    del temp_file
+
+    # Run garbage collection to free memory
+    gc.collect()
+
+    files_in_folder = len(os.listdir(folder))
+    print(f"{files_in_folder} ATOM files were downloaded.")
 
 
-def get_concat_dfs(paths: list) -> pd.DataFrame:
+def _process_single_file(path):
+    """Helper function to process a single ATOM file."""
+    try:
+        entries, ns = get_atom_data(path)
+        data_list = get_data_list(entries, ns)
+        return data_list if len(data_list) > 0 else None
+    except Exception:
+        return None
+
+
+def _process_batch(paths_batch, batch_num, tmp_dir):
+    """Helper function to process a batch of paths and save to parquet."""
+    results = []
+    failed_paths = []
+    max_workers = max((os.cpu_count()) - 2, 1)
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        results_iter = executor.map(_process_single_file, paths_batch)
+
+        for path, result in zip(paths_batch, results_iter):
+            if result is not None:
+                results.extend(result)
+            else:
+                failed_paths.append(path)
+
+    if failed_paths:
+        print(f"Failed to process {len(failed_paths)} files in batch {batch_num}")
+
+    if results:
+        df = pd.DataFrame(results)
+        batch_file = os.path.join(tmp_dir, f"batch_{batch_num}.parquet")
+        df.to_parquet(batch_file, index=False)
+        return len(results)
+    return 0
+
+def get_concat_df(paths: list, raw_data_path: str) -> pd.DataFrame:
     """
-    This function receives a list of full paths to the files with the data.
-    It returns a DataFrame with the data from all the files.
+    Process files in batches of 100, saving intermediate results as parquet files.
 
     Parameters:
     paths (list): A list with the full paths to the files with the data.
 
     Returns:
-    DataFrame: A DataFrame with the data from all the files.
+    pd.DataFrame: A pandas DataFrame with the data from all the files.
     """
-    dfs = []
-    with tqdm(total=len(paths), desc="Parsing files", unit="file") as pbar:
-        for path in paths:
-            entries, ns = get_atom_data(path)
-            df = get_df(entries, ns)
-            dfs.append(df)
-            pbar.update(1)
+    # Create temporary directory
+    tmp_dir = os.path.join(raw_data_path, "tmp")
+    os.makedirs(tmp_dir, exist_ok=True)
 
-    final_df = pd.concat(dfs, ignore_index=True)
+    # Process in batches of 100
+    batch_size = 100
+    total_records = 0
+
+    for i in tqdm(range(0, len(paths), batch_size), desc="Processing batches"):
+        batch_paths = paths[i:i + batch_size]
+        records = _process_batch(batch_paths, i // batch_size, tmp_dir)
+        total_records += records
+
+    if total_records == 0:
+        raise ValueError("No files were successfully processed")
+
+    # Read all parquet files and combine
+    print("Combining all batches...")
+    parquet_files = [os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.endswith('.parquet')]
+    final_df = pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
+
+    # Cleanup temporary files
+    for f in parquet_files:
+        os.remove(f)
+    os.rmdir(tmp_dir)
 
     return final_df
 
@@ -236,7 +305,7 @@ def get_full_parquet(
     period: str,
     dup_strategy: str = "None",
     apply_mapping: str = "N",
-    data_path: str = "data",
+    raw_data_path: str = "data/raw",
 ) -> str:
     """
     Generates a full parquet file for the given period by processing and consolidating data.
@@ -247,51 +316,55 @@ def get_full_parquet(
     3. Parses and concatenates the dataframes from the full paths.
     4. Removes duplicates based on the specified strategy.
     5. Optionally applies column mappings to the dataframe.
-    6. Saves the processed dataframe as a parquet file in the specified directory.
+    6. Saves the processed dataframe as a single parquet file in the specified directory.
 
     Args:
         period (str): The period for which the parquet file is to be generated.
         dup_strategy (str): The strategy to use for removing duplicates: 'id', 'link', 'title', or 'None'.
         apply_mapping (str): Whether to apply column mappings ('Y' for yes, 'N' for no).
-        data_path (str): The path to the data folder. Defaults to 'data'.
+        data_path (str): The path to the data folder. Defaults to 'data/raw'.
 
     Returns:
         str: The path to the generated parquet file.
     """
 
-    folder_parquet = get_folder_path("parquet", data_path)
+    folder_parquet = get_folder_path("parquet", raw_data_path)
     os.makedirs(folder_parquet, exist_ok=True)
-    parquet_file = f"{folder_parquet}/{period}.parquet"
 
-    folder = get_folder_path(period, data_path)
+    # Define the parquet file path
+    parquet_file = os.path.join(folder_parquet, f"{period}.parquet")
+
+    # Get the source data
+    folder = get_folder_path(f"atom/{period}", raw_data_path)
     full_paths = get_full_paths(folder)
-    dfs = get_concat_dfs(full_paths)
+    dfs = get_concat_df(full_paths, raw_data_path)
 
     dfs = remove_duplicates(dfs, dup_strategy)
 
     if apply_mapping == "Y":
         dfs = apply_mappings(dfs, mappings)
 
-    dfs.to_parquet(parquet_file, engine="pyarrow")
+    # Save to parquet
+    dfs.to_parquet(parquet_file, index=False, compression="snappy", engine="pyarrow")
 
     print(
-        f"Parsed and created parquet file for {period} with {dfs.shape[0]} rows and {dfs.shape[1]} columns."
+        f"Parsed and created parquet file for {period} with {len(dfs)} rows and {dfs.shape[1]} columns."
     )
 
     return parquet_file
 
 
-def remove_duplicates(df: str, strategy: str) -> pd.DataFrame:
+def remove_duplicates(df: pd.DataFrame, strategy: str) -> pd.DataFrame:
     """
     Removes duplicates from a dataframe based on the 'link', 'id' or 'title' column.
     If there are duplicates, the most recent entry is kept.
 
     Args:
-    df (DataFrame): A pandas DataFrame.
+    df (pd.DataFrame): A pandas DataFrame.
     strategy (str): The strategy to use for removing duplicates. Allowed values are 'id', 'link', 'title' or 'None'.
 
     Returns:
-    DataFrame: A pandas DataFrame with duplicates removed with selected strategy.
+    pd.DataFrame: A pandas DataFrame with duplicates removed with selected strategy.
     """
 
     if strategy == "None":
@@ -304,17 +377,11 @@ def remove_duplicates(df: str, strategy: str) -> pd.DataFrame:
             f"Invalid strategy: {strategy}. Allowed strategies are {strategies}"
         )
 
-    no_dups_df = df.copy()
-    no_dups_df["updated"] = pd.to_datetime(no_dups_df["updated"])
+    df["updated"] = pd.to_datetime(df["updated"])
 
-    no_dups_df = no_dups_df.sort_values(
-        by=[strategy, "updated"], ascending=[True, False]
-    )
-
-    no_dups_df = no_dups_df.drop_duplicates(subset=[strategy], keep="first")
-
-    no_dups_df = no_dups_df.sort_values(by="updated", ascending=False).reset_index(
-        drop=True
+    # Sort and drop duplicates
+    no_dups_df = df.sort_values(["updated"], ascending=False).drop_duplicates(
+        subset=[strategy], keep="first"
     )
 
     dups_dropped = len(df) - len(no_dups_df)
@@ -334,24 +401,18 @@ def apply_mappings(df: pd.DataFrame, mappings: dict) -> pd.DataFrame:
     Returns:
     pd.DataFrame: The DataFrame with the mappings applied.
     """
-
-    # Select only the columns that correspond to the values in the mappings dictionary
     selected_columns = {k: v for k, v in mappings.items() if k in df.columns}
-    mapped_df = df[selected_columns.keys()].copy()
-
-    # Rename the columns to the corresponding keys in the mappings dictionary
-    mapped_df.rename(columns=selected_columns, inplace=True)
-
+    mapped_df = df[list(selected_columns.keys())].rename(columns=selected_columns)
     return mapped_df
 
 
-def delete_files(period: str, data_path: str = "data"):
+def delete_files(period: str, data_path: str = "data/raw/atom"):
     """
     Deletes the folder with the given period name inside the data folder.
 
     Args:
     period (str): The name of the period whose folder is to be deleted.
-    data_path (str): The path to the data folder. Defaults to 'data'.
+    data_path (str): The path to the data folder. Defaults to 'data/raw/atom'.
 
     Returns:
     None

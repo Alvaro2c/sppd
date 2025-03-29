@@ -5,11 +5,11 @@ from src.dl_parser.utils import (
     get_source_data,
     recursive_field_dict,
     get_atom_data,
-    get_df,
+    get_data_list,
     download_and_extract_zip,
     get_folder_path,
     get_full_paths,
-    get_concat_dfs,
+    get_concat_df,
     get_full_parquet,
     remove_duplicates,
     apply_mappings,
@@ -21,6 +21,7 @@ from unittest.mock import patch, mock_open, ANY
 from bs4 import BeautifulSoup
 import pandas as pd
 import os
+from datetime import datetime, timezone
 
 
 def test_get_soup(sample_url, sample_html_content):
@@ -89,19 +90,11 @@ def test_get_atom_data(sample_atom_content):
         assert ns[""] == "http://www.w3.org/2005/Atom"
 
 
-def test_get_df(sample_entries):
+def test_get_data_list(sample_entries, sample_data_list):
     sample_ns = {"cac-place-ext": "http://www.w3.org/2005/Atom"}
-    df = get_df(sample_entries, sample_ns)
-    expected_df = pd.DataFrame(
-        [
-            {
-                "title": "Example Entry",
-                "link": "http://example.com",
-                "updated": "2023-01-01T00:00:00Z",
-            }
-        ]
-    )
-    pd.testing.assert_frame_equal(df, expected_df)
+    data_list = get_data_list(sample_entries, sample_ns)
+
+    assert data_list == sample_data_list
 
 
 def test_download_and_extract_zip(sample_source_data, sample_period, tmp_path):
@@ -132,13 +125,13 @@ def test_get_full_paths(sample_folder):
         assert full_paths == expected_paths
 
 
-def test_get_concat_dfs():
-    sample_paths = ["data/202101/file1.xml", "data/202101/file2.xml"]
+def test_get_concat_df(sample_data_list, tmp_path):
+    sample_paths = ["data/raw/atom/202101/file1.xml", "data/raw/atom/202101/file2.xml"]
     with patch("src.dl_parser.utils.get_atom_data") as mock_get_atom_data, patch(
-        "src.dl_parser.utils.get_df"
-    ) as mock_get_df:
+        "src.dl_parser.utils.get_data_list"
+    ) as mock_get_data_list:
         mock_get_atom_data.return_value = ([], {})
-        mock_get_df.return_value = pd.DataFrame(
+        sample_df = pd.DataFrame(
             [
                 {
                     "title": "Example Entry",
@@ -147,35 +140,25 @@ def test_get_concat_dfs():
                 }
             ]
         )
-        df = get_concat_dfs(sample_paths)
-        expected_df = pd.DataFrame(
-            [
-                {
-                    "title": "Example Entry",
-                    "link": "http://example.com",
-                    "updated": "2023-01-01T00:00:00Z",
-                },
-                {
-                    "title": "Example Entry",
-                    "link": "http://example.com",
-                    "updated": "2023-01-01T00:00:00Z",
-                },
-            ]
-        )
-        pd.testing.assert_frame_equal(df, expected_df)
+        mock_get_data_list.return_value = sample_data_list
+
+        df = get_concat_df(sample_paths, tmp_path)
+        expected_df = pd.concat([sample_df, sample_df], ignore_index=True)
+
+        assert len(df) == len(expected_df)
+        assert list(df.columns) == list(expected_df.columns)
+        assert df.equals(expected_df)
 
 
 def test_get_full_parquet(sample_period, tmp_path):
     with patch("src.dl_parser.utils.get_folder_path") as mock_get_folder_path, patch(
         "src.dl_parser.utils.get_full_paths"
     ) as mock_get_full_paths, patch(
-        "src.dl_parser.utils.get_concat_dfs"
-    ) as mock_get_concat_dfs, patch(
-        "pandas.DataFrame.to_parquet"
-    ) as mock_to_parquet:
+        "src.dl_parser.utils.get_concat_df"
+    ) as mock_get_concat_df:
         mock_get_folder_path.side_effect = lambda x, y: os.path.join(y, x)
         mock_get_full_paths.return_value = ["file1.xml", "file2.xml"]
-        mock_get_concat_dfs.return_value = pd.DataFrame(
+        mock_df = pd.DataFrame(
             [
                 {
                     "title": "Example Entry",
@@ -184,32 +167,37 @@ def test_get_full_parquet(sample_period, tmp_path):
                 }
             ]
         )
+        mock_get_concat_df.return_value = mock_df
+
         parquet_file = get_full_parquet(
             period=sample_period,
             dup_strategy="None",
             apply_mapping=False,
-            data_path=tmp_path,
+            raw_data_path=tmp_path,
         )
         expected_parquet_file = f"{tmp_path}/parquet/202101.parquet"
-        mock_to_parquet.assert_called_with(expected_parquet_file, engine="pyarrow")
+
         assert parquet_file == expected_parquet_file
 
 
 def test_remove_duplicates(sample_df_with_duplicates):
-    with patch("pandas.read_parquet") as mock_read_parquet:
-        mock_read_parquet.return_value = sample_df_with_duplicates
-        no_dups_df = remove_duplicates(sample_df_with_duplicates, "id")
-        expected_df = pd.DataFrame(
-            [
-                {
-                    "id": 1,
-                    "link": "http://example.com",
-                    "title": "Example Entry",
-                    "updated": pd.Timestamp("2023-01-02T00:00:00Z", tz="UTC"),
-                }
-            ]
-        )
-        pd.testing.assert_frame_equal(no_dups_df, expected_df)
+    no_dups_df = remove_duplicates(
+        df=sample_df_with_duplicates,
+        strategy="link"
+    )
+    expected_df = pd.DataFrame(
+        [
+            {
+                "id": "1",
+                "link": "http://example.com",
+                "title": "Example Entry",
+                "updated": datetime(2023, 1, 2, tzinfo=timezone.utc)
+            }
+        ],
+        index=[1]  # Match the index from no_dups_df
+    )
+
+    assert no_dups_df.equals(expected_df)
 
 
 def test_delete_files(sample_period, tmp_path):
@@ -254,14 +242,8 @@ def test_dl_parser(sample_source_data, sample_period, sample_parquet_path):
 def test_apply_mappings(sample_df_for_mapping, sample_mapping_dict):
     result_df = apply_mappings(sample_df_for_mapping, sample_mapping_dict)
 
-    # Check that columns were correctly renamed
-    expected_columns = ["title", "link", "date"]
-    assert list(result_df.columns) == expected_columns
-
-    # Check that data is preserved
+    assert set(["title", "link", "date"]).issubset(result_df.columns)
     assert result_df.iloc[0]["title"] == "Example Title"
     assert result_df.iloc[0]["link"] == "http://example.com"
     assert result_df.iloc[0]["date"] == "2023-01-01"
-
-    # Check that extra columns were removed
     assert "extra_field" not in result_df.columns

@@ -56,12 +56,12 @@ def main():
         return input(
             f"""
         You chose {selected_periods}.
+
         Type a duplicate removal strategy (type 'None' to keep the full raw data).
-        1. 'id'
-        2. 'title'
-        3. 'link' (recommended)
-        4. 'None'
-        \n
+        1. id
+        2. title
+        3. link (recommended if selecting a duplicate removal strategy)
+        4. None\n
         """
         )
 
@@ -77,7 +77,9 @@ def main():
         return input(
             f"""
         You chose {selected_periods} and the following duplicate removal strategy: {dup_strategy}.
-        Do you want to apply the mapping to the data? Select N to keep the raw data.
+
+        Do you want to apply a mapping to the data (select main dimensions only)?
+        Select N to keep the full raw data.
         (Y/N)\n
         """
         )
@@ -93,6 +95,7 @@ def main():
             f"""
         You chose {selected_periods}, the following duplicate removal strategy: {dup_strategy},
         and the following mapping application: {apply_mapping}.
+
         Do you want to delete the downloaded ATOM files after parsing? (Y/N)\n
         """
         )
