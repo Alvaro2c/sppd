@@ -281,8 +281,10 @@ def get_concat_df(paths: list, raw_data_path: str) -> pd.DataFrame:
     batch_size = 100
     total_records = 0
 
-    for i in tqdm(range(0, len(paths), batch_size), desc="Processing batches", unit="batch"):
-        batch_paths = paths[i:i + batch_size]  # noqa: E203
+    for i in tqdm(
+        range(0, len(paths), batch_size), desc="Processing batches", unit="batch"
+    ):
+        batch_paths = paths[i : i + batch_size]  # noqa: E203
         records = _process_batch(batch_paths, i // batch_size, tmp_dir)
         total_records += records
 
@@ -291,7 +293,9 @@ def get_concat_df(paths: list, raw_data_path: str) -> pd.DataFrame:
 
     # Read all parquet files and combine
     print("Combining all batches...")
-    parquet_files = [os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.endswith('.parquet')]
+    parquet_files = [
+        os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.endswith(".parquet")
+    ]
     final_df = pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
 
     # Cleanup temporary files

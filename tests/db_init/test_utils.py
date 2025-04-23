@@ -25,8 +25,16 @@ def test_concat_parquet_files(tmp_path, sample_df_with_duplicates):
         concat_parquet_files(tmp_path, output_file)
 
         # Verify the concatenated file
-        result_df = pd.read_parquet(output_file).sort_values(by=sort_column).reset_index(drop=True)
-        expected_df = pd.concat([df1, df2], ignore_index=True).sort_values(by=sort_column).reset_index(drop=True)
+        result_df = (
+            pd.read_parquet(output_file)
+            .sort_values(by=sort_column)
+            .reset_index(drop=True)
+        )
+        expected_df = (
+            pd.concat([df1, df2], ignore_index=True)
+            .sort_values(by=sort_column)
+            .reset_index(drop=True)
+        )
         assert len(result_df) == len(expected_df)
         assert list(result_df.columns) == list(expected_df.columns)
         assert result_df.equals(expected_df)

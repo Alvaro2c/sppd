@@ -181,20 +181,17 @@ def test_get_full_parquet(sample_period, tmp_path):
 
 
 def test_remove_duplicates(sample_df_with_duplicates):
-    no_dups_df = remove_duplicates(
-        df=sample_df_with_duplicates,
-        strategy="link"
-    )
+    no_dups_df = remove_duplicates(df=sample_df_with_duplicates, strategy="link")
     expected_df = pd.DataFrame(
         [
             {
                 "id": "1",
                 "link": "http://example.com",
                 "title": "Example Entry",
-                "updated": datetime(2023, 1, 2, tzinfo=timezone.utc)
+                "updated": datetime(2023, 1, 2, tzinfo=timezone.utc),
             }
         ],
-        index=[1]  # Match the index from no_dups_df
+        index=[1],  # Match the index from no_dups_df
     )
 
     assert no_dups_df.equals(expected_df)

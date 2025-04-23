@@ -1,4 +1,12 @@
-from src.common.utils import get_full_paths, get_soup
+from src.common.utils import (
+    get_full_paths,
+    get_soup,
+    get_folder_path,
+)
+from src.dl_parser.utils import (
+    remove_duplicates
+)
+import os
 import pandas as pd
 
 
@@ -94,3 +102,84 @@ def get_codice_df(codice_direct_link: str) -> pd.DataFrame:
     # Convert to DataFrame
     codice_data = [dict(row) for row in rows]
     return pd.DataFrame(codice_data)
+
+
+def create_db_local_folder(local_folder: str = "local_db") -> None:
+    """
+    Create a local folder for the database if it doesn't exist.
+
+    Parameters:
+    local_folder (str): Path to the folder to be created.
+
+    Returns:
+    local_folder_path (str): Path to the created folder.
+    """
+    try:
+        # Create the folder if it doesn't exist
+        folder_path = os.path.join("data", local_folder)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+            print(f"Folder {local_folder} created.")
+        else:
+            print(f"Folder {local_folder} already exists.")
+    except Exception as e:
+        raise RuntimeError(f"Error creating folder {local_folder}: {e}")
+
+
+def get_db_base_table(
+    apply_mappings: str, dup_strategy: str, parquet_folder: str = "data/raw/parquet"
+) -> str:
+    """
+    Generate a base table DataFrame from parquet files.
+
+    Parameters:
+    apply_mappings (str): Flag to determine if mappings should be applied ("Y" for yes, otherwise no).
+    dup_strategy (str): Strategy to handle duplicate records.
+    parquet_folder (str): Folder containing parquet files. Default is "parquet".
+
+    Returns:
+    str: Path to the processed DataFrame saved as a parquet file.
+    """
+    try:
+        # Get the full parquet db
+        parquet_path = get_folder_path(parquet_folder)
+        base_table = concat_parquet_files(parquet_path)
+
+        # Remove duplicates
+        base_table_proc = remove_duplicates(base_table, dup_strategy)
+
+        # Apply mappings if required
+        if apply_mappings.upper() == "Y":
+            base_table_proc = apply_mappings(base_table_proc)
+
+        # Save the processed DataFrame to a parquet file
+        base_table_path = f"{parquet_path}/base_table.parquet"
+        base_table_proc.to_parquet(base_table_path, index=False)
+
+        return base_table_path
+
+    except Exception as e:
+        raise RuntimeError(f"Error processing base table: {e}")
+
+
+def get_db_codice_tables(codice_url: str) -> list:
+
+    latest_codices = get_latest_codices(codice_url)
+    codice_dfs = {
+        name: (get_codice_df(url), version)
+        for name, (url, version) in latest_codices.items()
+    }
+
+    codice_paths = []
+
+    # Iterate through the codices and save them to parquet files
+    for (codice_name, codice_version), codice_df in codice_dfs.items():
+        # Save the DataFrame to a parquet file
+        codice_path = f"parquet/{codice_name}_{codice_version}.parquet"
+        codice_df.to_parquet(codice_path, index=False)
+        print(f"Saved {codice_name} version {codice_version} to {codice_path}")
+        # Append the paths to the list
+        codice_paths.append(codice_path)
+
+    # Return the list of paths to the parquet files
+    return codice_paths
