@@ -1,13 +1,10 @@
-from src.common.utils import (
-    get_full_paths,
-    get_soup,
-    get_folder_path,
-)
-from src.dl_parser.utils import (
-    remove_duplicates
-)
+from src.common.utils import get_soup
+from src.dl_parser.utils import remove_duplicates, apply_mappings
+
 import os
 import pandas as pd
+import pyarrow.dataset as ds
+import pyarrow.parquet as pq
 
 
 def concat_parquet_files(folder_path: str, output_file: str) -> None:
@@ -21,12 +18,13 @@ def concat_parquet_files(folder_path: str, output_file: str) -> None:
     Returns:
         None: The function saves the concatenated parquet file to the specified output path.
     """
-    parquet_files = get_full_paths(folder_path)
-    concatenated_df = pd.concat([pd.read_parquet(file) for file in parquet_files])
-    concatenated_df.to_parquet(output_file)
-    print(f"Concatenated parquet file saved as '{output_file}'")
+    dataset = ds.dataset(folder_path, format="parquet")
+    table = dataset.to_table()
+    output_path = os.path.join(folder_path,output_file)
+    pq.write_table(table, output_path)
+    print(f"Concatenated parquet file saved as '{output_path}'")
 
-    return output_file
+    return output_path
 
 
 def get_latest_codices(codice_url: str) -> dict:
@@ -127,7 +125,10 @@ def create_db_local_folder(local_folder: str = "local_db") -> None:
 
 
 def get_db_base_table(
-    apply_mappings: str, dup_strategy: str, parquet_folder: str = "data/raw/parquet"
+    apply_mapping: str,
+    dup_strategy: str,
+    parquet_path: str = "data/raw/parquet",
+    local_db_path: str = "data/local_db"
 ) -> str:
     """
     Generate a base table DataFrame from parquet files.
@@ -142,18 +143,17 @@ def get_db_base_table(
     """
     try:
         # Get the full parquet db
-        parquet_path = get_folder_path(parquet_folder)
-        base_table = concat_parquet_files(parquet_path)
+        raw_base_table_path = concat_parquet_files(parquet_path, "raw_base_table.parquet")
 
         # Remove duplicates
-        base_table_proc = remove_duplicates(base_table, dup_strategy)
+        base_table_proc = remove_duplicates(pd.read_parquet(raw_base_table_path), dup_strategy)
 
         # Apply mappings if required
-        if apply_mappings.upper() == "Y":
+        if apply_mapping.upper() == "Y":
             base_table_proc = apply_mappings(base_table_proc)
 
         # Save the processed DataFrame to a parquet file
-        base_table_path = f"{parquet_path}/base_table.parquet"
+        base_table_path = f"{local_db_path}/base_table.parquet"
         base_table_proc.to_parquet(base_table_path, index=False)
 
         return base_table_path
