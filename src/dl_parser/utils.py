@@ -1,5 +1,6 @@
 # data processing
 import polars as pl
+from polars.exceptions import SchemaError
 
 # web/xml scraping
 import requests
@@ -383,7 +384,11 @@ def remove_duplicates(df: pl.DataFrame, strategy: str) -> pl.DataFrame:
             f"Invalid strategy: {strategy}. Allowed strategies are {strategies}"
         )
 
-    df = df.with_columns(pl.col("updated").str.strptime(pl.Datetime, strict=False))
+    # Convert 'updated' column to datetime if possible (in case already transformed to datetime)
+    try:
+        df = df.with_columns(pl.col("updated").str.strptime(pl.Datetime, strict=False))
+    except SchemaError:
+        pass
 
     # Sort and drop duplicates
     no_dups_df = df.sort("updated", descending=True).unique(

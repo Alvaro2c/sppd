@@ -3,8 +3,6 @@ from src.dl_parser.utils import remove_duplicates, apply_mappings
 
 import os
 import polars as pl
-import pyarrow.dataset as ds
-import pyarrow.parquet as pq
 
 
 def concat_parquet_files(folder_path: str, output_file: str) -> str:
