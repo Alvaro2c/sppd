@@ -2,7 +2,7 @@ from src.common.utils import get_soup
 from src.dl_parser.utils import remove_duplicates, apply_mappings
 
 import os
-import pandas as pd
+import polars as pl
 import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 
@@ -79,14 +79,14 @@ def get_latest_codices(codice_url: str) -> dict:
     return latest_codices
 
 
-def get_codice_df(codice_direct_link: str) -> pd.DataFrame:
+def get_codice_df(codice_direct_link: str) -> pl.DataFrame:
     """
     Get the codice dataframe from the direct link to the codice.
 
     Args:
         codice_direct_link (str): Direct link to the codice.
     Returns:
-        codice_df (pd.DataFrame): DataFrame with the codice information.
+        codice_df (pl.DataFrame): DataFrame with the codice information.
     """
     codice_soup = get_soup(codice_direct_link)
 
@@ -99,7 +99,7 @@ def get_codice_df(codice_direct_link: str) -> pd.DataFrame:
 
     # Convert to DataFrame
     codice_data = [dict(row) for row in rows]
-    return pd.DataFrame(codice_data)
+    return pl.DataFrame(codice_data)
 
 
 def create_db_local_folder(local_folder: str = "local_db") -> None:
@@ -149,7 +149,7 @@ def get_db_base_table(
 
         # Remove duplicates
         base_table_proc = remove_duplicates(
-            pd.read_parquet(raw_base_table_path), dup_strategy
+            pl.read_parquet(raw_base_table_path), dup_strategy
         )
 
         # Apply mappings if required
@@ -158,7 +158,7 @@ def get_db_base_table(
 
         # Save the processed DataFrame to a parquet file
         base_table_path = f"{local_db_path}/base_table.parquet"
-        base_table_proc.to_parquet(base_table_path, index=False)
+        base_table_proc.write_parquet(base_table_path)
 
         return base_table_path
 
@@ -180,7 +180,7 @@ def get_db_codice_tables(codice_url: str) -> list:
     for (codice_name, codice_version), codice_df in codice_dfs.items():
         # Save the DataFrame to a parquet file
         codice_path = f"parquet/{codice_name}_{codice_version}.parquet"
-        codice_df.to_parquet(codice_path, index=False)
+        codice_df.write_parquet(codice_path)
         print(f"Saved {codice_name} version {codice_version} to {codice_path}")
         # Append the paths to the list
         codice_paths.append(codice_path)
