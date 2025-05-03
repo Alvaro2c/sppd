@@ -7,21 +7,21 @@ import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 
 
-def concat_parquet_files(folder_path: str, output_file: str) -> None:
+def concat_parquet_files(folder_path: str, output_file: str) -> str:
     """
-    Concatenates multiple parquet files from a specified folder into a single parquet file.
+    Concatenates multiple parquet files from a specified folder into a single parquet file using polars.
 
     Args:
         folder_path (str): The path to the folder containing the parquet files to concatenate.
         output_file (str): The path where the concatenated parquet file will be saved.
 
     Returns:
-        None: The function saves the concatenated parquet file to the specified output path.
+        str: The path to the concatenated parquet file.
     """
-    dataset = ds.dataset(folder_path, format="parquet")
-    table = dataset.to_table()
+    parquet_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.parquet')]
+    df = pl.concat([pl.read_parquet(f) for f in parquet_files], how="diagonal")
     output_path = os.path.join(folder_path, output_file)
-    pq.write_table(table, output_path)
+    df.write_parquet(output_path)
     print(f"Concatenated parquet file saved as '{output_path}'")
 
     return output_path
@@ -179,7 +179,7 @@ def get_db_codice_tables(codice_url: str) -> list:
     # Iterate through the codices and save them to parquet files
     for (codice_name, codice_version), codice_df in codice_dfs.items():
         # Save the DataFrame to a parquet file
-        codice_path = f"parquet/{codice_name}_{codice_version}.parquet"
+        codice_path = f"local_db/{codice_name}_{codice_version}.parquet"
         codice_df.write_parquet(codice_path)
         print(f"Saved {codice_name} version {codice_version} to {codice_path}")
         # Append the paths to the list
