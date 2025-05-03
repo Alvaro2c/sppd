@@ -1,6 +1,7 @@
 # mappings to filter dataframes before creating the database
 mappings = {
     "ContractFolderID": "ContractFolderId",
+    "updated": "Updated",
     "ContractFolderStatusCode": "ContractFolderStatusCode",
     "LocatedContractingParty.Party.PartyName.Name": "ContractingPartyName",
     "LocatedContractingParty.Party.PartyIdentification.ID": "ContractingPartyId",

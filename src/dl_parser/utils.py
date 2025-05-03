@@ -1,5 +1,5 @@
 # data processing
-import pandas as pd
+import polars as pl
 
 # web/xml scraping
 import requests
@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 import io
 import os
+import shutil
 from tqdm import tqdm
 import gc
 
@@ -256,14 +257,14 @@ def _process_batch(paths_batch, batch_num, tmp_dir):
         print(f"Failed to process {len(failed_paths)} files in batch {batch_num}")
 
     if results:
-        df = pd.DataFrame(results)
+        df = pl.DataFrame(results)
         batch_file = os.path.join(tmp_dir, f"batch_{batch_num}.parquet")
-        df.to_parquet(batch_file, index=False)
+        df.write_parquet(batch_file, compression="snappy")
         return len(results)
     return 0
 
 
-def get_concat_df(paths: list, raw_data_path: str) -> pd.DataFrame:
+def get_concat_df(paths: list, raw_data_path: str) -> pl.DataFrame:
     """
     Process files in batches of 100, saving intermediate results as parquet files.
 
@@ -271,7 +272,7 @@ def get_concat_df(paths: list, raw_data_path: str) -> pd.DataFrame:
     paths (list): A list with the full paths to the files with the data.
 
     Returns:
-    pd.DataFrame: A pandas DataFrame with the data from all the files.
+    pl.DataFrame: A polars DataFrame with the data from all the files.
     """
     # Create temporary directory
     tmp_dir = os.path.join(raw_data_path, "tmp")
@@ -296,7 +297,7 @@ def get_concat_df(paths: list, raw_data_path: str) -> pd.DataFrame:
     parquet_files = [
         os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.endswith(".parquet")
     ]
-    final_df = pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
+    final_df = pl.concat([pl.read_parquet(f) for f in parquet_files], how="diagonal")
 
     # Cleanup temporary files
     for f in parquet_files:
@@ -350,7 +351,7 @@ def get_full_parquet(
         dfs = apply_mappings(dfs, mappings)
 
     # Save to parquet
-    dfs.to_parquet(parquet_file, index=False, compression="snappy", engine="pyarrow")
+    dfs.write_parquet(parquet_file, compression="snappy")
 
     print(
         f"Parsed and created parquet file for {period} with {len(dfs)} rows and {dfs.shape[1]} columns."
@@ -359,17 +360,17 @@ def get_full_parquet(
     return parquet_file
 
 
-def remove_duplicates(df: pd.DataFrame, strategy: str) -> pd.DataFrame:
+def remove_duplicates(df: pl.DataFrame, strategy: str) -> pl.DataFrame:
     """
     Removes duplicates from a dataframe based on the 'link', 'id' or 'title' column.
     If there are duplicates, the most recent entry is kept.
 
     Args:
-    df (pd.DataFrame): A pandas DataFrame.
+    df (pl.DataFrame): A polars DataFrame.
     strategy (str): The strategy to use for removing duplicates. Allowed values are 'id', 'link', 'title' or 'None'.
 
     Returns:
-    pd.DataFrame: A pandas DataFrame with duplicates removed with selected strategy.
+    pl.DataFrame: A polars DataFrame with duplicates removed with selected strategy.
     """
 
     if strategy == "None":
@@ -382,10 +383,10 @@ def remove_duplicates(df: pd.DataFrame, strategy: str) -> pd.DataFrame:
             f"Invalid strategy: {strategy}. Allowed strategies are {strategies}"
         )
 
-    df["updated"] = pd.to_datetime(df["updated"])
+    df = df.with_columns(pl.col("updated").str.strptime(pl.Datetime, strict=False))
 
     # Sort and drop duplicates
-    no_dups_df = df.sort_values(["updated"], ascending=False).drop_duplicates(
+    no_dups_df = df.sort("updated", descending=True).unique(
         subset=[strategy], keep="first"
     )
 
@@ -395,19 +396,19 @@ def remove_duplicates(df: pd.DataFrame, strategy: str) -> pd.DataFrame:
     return no_dups_df
 
 
-def apply_mappings(df: pd.DataFrame, mappings: dict) -> pd.DataFrame:
+def apply_mappings(df: pl.DataFrame, mappings: dict) -> pl.DataFrame:
     """
     Applies mappings to the DataFrame columns based on the mappings dictionary.
 
     Args:
-    df (pd.DataFrame): The DataFrame to which the mappings will be applied.
+    df (pl.DataFrame): The DataFrame to which the mappings will be applied.
     mappings (dict): The dictionary with the mappings to be applied.
 
     Returns:
-    pd.DataFrame: The DataFrame with the mappings applied.
+    pl.DataFrame: The DataFrame with the mappings applied.
     """
     selected_columns = {k: v for k, v in mappings.items() if k in df.columns}
-    mapped_df = df[list(selected_columns.keys())].rename(columns=selected_columns)
+    mapped_df = df.select([pl.col(k).alias(v) for k, v in selected_columns.items()])
     return mapped_df
 
 
@@ -426,7 +427,7 @@ def delete_files(period: str, data_path: str = "data/raw/atom"):
     folder = get_folder_path(period, data_path)
     files_in_folder = len(os.listdir(folder))
     if os.path.exists(folder):
-        os.rmdir(folder)
+        shutil.rmtree(folder)
         print(f"{files_in_folder} ATOM files were deleted.")
     else:
         raise FileNotFoundError(f"The files for period {period} does not exist.")

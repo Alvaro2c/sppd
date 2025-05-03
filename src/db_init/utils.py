@@ -20,7 +20,7 @@ def concat_parquet_files(folder_path: str, output_file: str) -> None:
     """
     dataset = ds.dataset(folder_path, format="parquet")
     table = dataset.to_table()
-    output_path = os.path.join(folder_path,output_file)
+    output_path = os.path.join(folder_path, output_file)
     pq.write_table(table, output_path)
     print(f"Concatenated parquet file saved as '{output_path}'")
 
@@ -128,7 +128,7 @@ def get_db_base_table(
     apply_mapping: str,
     dup_strategy: str,
     parquet_path: str = "data/raw/parquet",
-    local_db_path: str = "data/local_db"
+    local_db_path: str = "data/local_db",
 ) -> str:
     """
     Generate a base table DataFrame from parquet files.
@@ -143,10 +143,14 @@ def get_db_base_table(
     """
     try:
         # Get the full parquet db
-        raw_base_table_path = concat_parquet_files(parquet_path, "raw_base_table.parquet")
+        raw_base_table_path = concat_parquet_files(
+            parquet_path, "raw_base_table.parquet"
+        )
 
         # Remove duplicates
-        base_table_proc = remove_duplicates(pd.read_parquet(raw_base_table_path), dup_strategy)
+        base_table_proc = remove_duplicates(
+            pd.read_parquet(raw_base_table_path), dup_strategy
+        )
 
         # Apply mappings if required
         if apply_mapping.upper() == "Y":

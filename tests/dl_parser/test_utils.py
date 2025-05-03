@@ -19,7 +19,7 @@ from src.dl_parser.utils import (
 import xml.etree.ElementTree as ET
 from unittest.mock import patch, mock_open, ANY
 from bs4 import BeautifulSoup
-import pandas as pd
+import polars as pl
 import os
 from datetime import datetime, timezone
 
@@ -125,32 +125,23 @@ def test_get_full_paths(sample_folder):
         assert full_paths == expected_paths
 
 
-def test_get_concat_df(sample_data_list, tmp_path):
+def test_get_concat_df(sample_data_list, sample_df, tmp_path):
     sample_paths = ["data/raw/atom/202101/file1.xml", "data/raw/atom/202101/file2.xml"]
     with patch("src.dl_parser.utils.get_atom_data") as mock_get_atom_data, patch(
         "src.dl_parser.utils.get_data_list"
     ) as mock_get_data_list:
         mock_get_atom_data.return_value = ([], {})
-        sample_df = pd.DataFrame(
-            [
-                {
-                    "title": "Example Entry",
-                    "link": "http://example.com",
-                    "updated": "2023-01-01T00:00:00Z",
-                }
-            ]
-        )
         mock_get_data_list.return_value = sample_data_list
 
         df = get_concat_df(sample_paths, tmp_path)
-        expected_df = pd.concat([sample_df, sample_df], ignore_index=True)
+        expected_df = pl.concat([sample_df, sample_df], how="diagonal")
 
         assert len(df) == len(expected_df)
         assert list(df.columns) == list(expected_df.columns)
         assert df.equals(expected_df)
 
 
-def test_get_full_parquet(sample_period, tmp_path):
+def test_get_full_parquet(sample_period, sample_df, tmp_path):
     with patch("src.dl_parser.utils.get_folder_path") as mock_get_folder_path, patch(
         "src.dl_parser.utils.get_full_paths"
     ) as mock_get_full_paths, patch(
@@ -158,16 +149,7 @@ def test_get_full_parquet(sample_period, tmp_path):
     ) as mock_get_concat_df:
         mock_get_folder_path.side_effect = lambda x, y: os.path.join(y, x)
         mock_get_full_paths.return_value = ["file1.xml", "file2.xml"]
-        mock_df = pd.DataFrame(
-            [
-                {
-                    "title": "Example Entry",
-                    "link": "http://example.com",
-                    "updated": "2023-01-01T00:00:00Z",
-                }
-            ]
-        )
-        mock_get_concat_df.return_value = mock_df
+        mock_get_concat_df.return_value = sample_df
 
         parquet_file = get_full_parquet(
             period=sample_period,
@@ -182,7 +164,7 @@ def test_get_full_parquet(sample_period, tmp_path):
 
 def test_remove_duplicates(sample_df_with_duplicates):
     no_dups_df = remove_duplicates(df=sample_df_with_duplicates, strategy="link")
-    expected_df = pd.DataFrame(
+    expected_df = pl.DataFrame(
         [
             {
                 "id": "1",
@@ -190,8 +172,7 @@ def test_remove_duplicates(sample_df_with_duplicates):
                 "title": "Example Entry",
                 "updated": datetime(2023, 1, 2, tzinfo=timezone.utc),
             }
-        ],
-        index=[1],  # Match the index from no_dups_df
+        ]
     )
 
     assert no_dups_df.equals(expected_df)
@@ -240,7 +221,7 @@ def test_apply_mappings(sample_df_for_mapping, sample_mapping_dict):
     result_df = apply_mappings(sample_df_for_mapping, sample_mapping_dict)
 
     assert set(["title", "link", "date"]).issubset(result_df.columns)
-    assert result_df.iloc[0]["title"] == "Example Title"
-    assert result_df.iloc[0]["link"] == "http://example.com"
-    assert result_df.iloc[0]["date"] == "2023-01-01"
+    assert result_df.item(0, "title") == "Example Title"
+    assert result_df.item(0, "link") == "http://example.com"
+    assert result_df.item(0, "date") == "2023-01-01"
     assert "extra_field" not in result_df.columns

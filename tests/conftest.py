@@ -1,5 +1,5 @@
 import pytest
-import pandas as pd
+import polars as pl
 import xml.etree.ElementTree as ET
 
 
@@ -60,7 +60,7 @@ def sample_source_data():
 
 @pytest.fixture
 def sample_df_with_duplicates():
-    return pd.DataFrame(
+    return pl.DataFrame(
         [
             {
                 "id": "1",
@@ -130,7 +130,7 @@ def sample_codice():
 
 @pytest.fixture
 def sample_df_for_mapping():
-    return pd.DataFrame(
+    return pl.DataFrame(
         [
             {
                 "original_title": "Example Title",
@@ -156,3 +156,16 @@ def sample_data_list():
             "updated": "2023-01-01T00:00:00Z",
         }
     ]
+
+
+@pytest.fixture
+def sample_df():
+    return pl.DataFrame(
+        [
+            {
+                "title": "Example Entry",
+                "link": "http://example.com",
+                "updated": "2023-01-01T00:00:00Z",
+            }
+        ]
+    )
