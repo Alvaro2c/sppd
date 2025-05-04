@@ -7,9 +7,6 @@ def test_get_db_base_table(tmp_path, sample_df_with_duplicates):
     df1 = sample_df_with_duplicates
     df2 = sample_df_with_duplicates
 
-    # Get first column name for sorting
-    sort_column = df1.columns[0]
-
     # Create sample parquet files
     df1.write_parquet(f"{tmp_path}/file1.parquet")
     df2.write_parquet(f"{tmp_path}/file2.parquet")
