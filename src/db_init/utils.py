@@ -16,7 +16,11 @@ def concat_parquet_files(folder_path: str, output_file: str) -> str:
     Returns:
         str: The path to the concatenated parquet file.
     """
-    parquet_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.parquet')]
+    parquet_files = [
+        os.path.join(folder_path, f)
+        for f in os.listdir(folder_path)
+        if f.endswith(".parquet")
+    ]
     df = pl.concat([pl.read_parquet(f) for f in parquet_files], how="diagonal")
     output_path = os.path.join(folder_path, output_file)
     df.write_parquet(output_path)
@@ -141,22 +145,27 @@ def get_db_base_table(
     """
     try:
         # Get the full parquet db
-        raw_base_table_path = concat_parquet_files(
-            parquet_path, "raw_base_table.parquet"
-        )
+        parquet_files = [
+            os.path.join(parquet_path, f)
+            for f in os.listdir(parquet_path)
+            if f.endswith(".parquet")
+        ]
+        df = pl.concat([pl.read_parquet(f) for f in parquet_files], how="diagonal")
+        print(f"Loaded {len(parquet_files)} parquet files from {parquet_path}")
+        print(f"DataFrame shape: {df.shape}")
 
         # Remove duplicates
-        base_table_proc = remove_duplicates(
-            pl.read_parquet(raw_base_table_path), dup_strategy
-        )
+        df_no_dups = remove_duplicates(df, dup_strategy)
 
         # Apply mappings if required
         if apply_mapping.upper() == "Y":
-            base_table_proc = apply_mappings(base_table_proc)
+            df_no_dups = apply_mappings(df_no_dups)
 
         # Save the processed DataFrame to a parquet file
         base_table_path = f"{local_db_path}/base_table.parquet"
-        base_table_proc.write_parquet(base_table_path)
+        df_no_dups.write_parquet(base_table_path)
+        print(f"Base table saved as '{base_table_path}'")
+        print(f"Base table shape: {df_no_dups.shape}")
 
         return base_table_path
 
