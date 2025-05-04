@@ -5,30 +5,6 @@ import os
 import polars as pl
 
 
-def concat_parquet_files(folder_path: str, output_file: str) -> str:
-    """
-    Concatenates multiple parquet files from a specified folder into a single parquet file using polars.
-
-    Args:
-        folder_path (str): The path to the folder containing the parquet files to concatenate.
-        output_file (str): The path where the concatenated parquet file will be saved.
-
-    Returns:
-        str: The path to the concatenated parquet file.
-    """
-    parquet_files = [
-        os.path.join(folder_path, f)
-        for f in os.listdir(folder_path)
-        if f.endswith(".parquet")
-    ]
-    df = pl.concat([pl.read_parquet(f) for f in parquet_files], how="diagonal")
-    output_path = os.path.join(folder_path, output_file)
-    df.write_parquet(output_path)
-    print(f"Concatenated parquet file saved as '{output_path}'")
-
-    return output_path
-
-
 def get_latest_codices(codice_url: str) -> dict:
     """
     Get the latest version of all codices from the given URL.
@@ -127,8 +103,8 @@ def create_db_local_folder(local_folder: str = "local_db") -> None:
 
 
 def get_db_base_table(
-    apply_mapping: str,
-    dup_strategy: str,
+    apply_mapping: str = "N",
+    dup_strategy: str = "link",
     parquet_path: str = "data/raw/parquet",
     local_db_path: str = "data/local_db",
 ) -> str:
