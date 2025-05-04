@@ -160,9 +160,9 @@ def get_db_codice_tables(codice_url: str) -> list:
     codice_paths = []
 
     # Iterate through the codices and save them to parquet files
-    for (codice_name, codice_version), codice_df in codice_dfs.items():
+    for codice_name, (codice_df, codice_version) in codice_dfs.items():
         # Save the DataFrame to a parquet file
-        codice_path = f"local_db/{codice_name}_{codice_version}.parquet"
+        codice_path = f"data/local_db/{codice_name}_{codice_version}.parquet"
         codice_df.write_parquet(codice_path)
         print(f"Saved {codice_name} version {codice_version} to {codice_path}")
         # Append the paths to the list
