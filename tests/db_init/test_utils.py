@@ -1,9 +1,9 @@
-from src.db_init.utils import get_db_base_table
+from src.db_init.utils import get_parquet_base_table
 from unittest.mock import patch
 import polars as pl
 
 
-def test_get_db_base_table(tmp_path, sample_df_with_duplicates):
+def test_get_parquet_base_table(tmp_path, sample_df_with_duplicates):
     df1 = sample_df_with_duplicates
     df2 = sample_df_with_duplicates
 
@@ -17,7 +17,7 @@ def test_get_db_base_table(tmp_path, sample_df_with_duplicates):
             f"{tmp_path}/file2.parquet",
         ]
 
-    output_file = get_db_base_table(parquet_path=tmp_path, local_db_path=tmp_path)
+    output_file = get_parquet_base_table(parquet_path=tmp_path, local_db_path=tmp_path)
 
     # Verify the concatenated file
     result_df = pl.read_parquet(output_file)

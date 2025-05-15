@@ -102,7 +102,7 @@ def create_db_local_folder(local_folder: str = "local_db") -> None:
         raise RuntimeError(f"Error creating folder {local_folder}: {e}")
 
 
-def get_db_base_table(
+def get_parquet_base_table(
     apply_mapping: str = "N",
     dup_strategy: str = "link",
     parquet_path: str = "data/raw/parquet",
