@@ -1,6 +1,5 @@
 # data processing
 import polars as pl
-from polars.exceptions import SchemaError
 
 # web/xml scraping
 import requests
@@ -310,7 +309,7 @@ def get_concat_df(paths: list, raw_data_path: str) -> pl.DataFrame:
 
 def get_full_parquet(
     period: str,
-    dup_strategy: str = "None",
+    dup_strategy: str = "link",
     apply_mapping: str = "N",
     raw_data_path: str = "data/raw",
 ) -> str:
@@ -327,7 +326,7 @@ def get_full_parquet(
 
     Args:
         period (str): The period for which the parquet file is to be generated.
-        dup_strategy (str): The strategy to use for removing duplicates: 'id', 'link', 'title', or 'None'.
+        dup_strategy (str): The strategy to use for removing duplicates: 'link', 'title', or 'None'.
         apply_mapping (str): Whether to apply column mappings ('Y' for yes, 'N' for no).
         data_path (str): The path to the data folder. Defaults to 'data/raw'.
 
@@ -363,12 +362,12 @@ def get_full_parquet(
 
 def remove_duplicates(df: pl.DataFrame, strategy: str) -> pl.DataFrame:
     """
-    Removes duplicates from a dataframe based on the 'link', 'id' or 'title' column.
+    Removes duplicates from a dataframe based on the 'link' or 'title' column.
     If there are duplicates, the most recent entry is kept.
 
     Args:
     df (pl.DataFrame): A polars DataFrame.
-    strategy (str): The strategy to use for removing duplicates. Allowed values are 'id', 'link', 'title' or 'None'.
+    strategy (str): The strategy to use for removing duplicates. Allowed values are 'link', 'title' or 'None'.
 
     Returns:
     pl.DataFrame: A polars DataFrame with duplicates removed with selected strategy.
@@ -377,7 +376,7 @@ def remove_duplicates(df: pl.DataFrame, strategy: str) -> pl.DataFrame:
     if strategy == "None":
         return df
 
-    strategies = ["id", "link", "title"]
+    strategies = ["link", "title"]
 
     if strategy not in strategies:
         raise ValueError(
@@ -387,7 +386,7 @@ def remove_duplicates(df: pl.DataFrame, strategy: str) -> pl.DataFrame:
     # Convert 'updated' column to datetime if possible (in case already transformed to datetime)
     try:
         df = df.with_columns(pl.col("updated").str.strptime(pl.Datetime, strict=False))
-    except SchemaError:
+    except pl.ColumnNotFoundError:
         pass
 
     # Sort and drop duplicates

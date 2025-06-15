@@ -58,16 +58,15 @@ def main():
         You chose {selected_periods}.
 
         Type a duplicate removal strategy (type 'None' to keep the full raw data).
-        1. id
+        1. link (recommended if selecting a duplicate removal strategy)
         2. title
-        3. link (recommended if selecting a duplicate removal strategy)
-        4. None\n
+        3. None\n
         """
         )
 
     dup_strategy = prompt_for_duplicate_strategy()
 
-    while dup_strategy not in ["id", "title", "link", "None"]:
+    while dup_strategy not in ["title", "link", "None"]:
         print(
             "\nSorry, incorrect input. Please select one of the mentioned strategies.\n"
         )
