@@ -178,11 +178,11 @@ def get_db_codice_tables(codice_url: str, with_mappings: bool = True) -> list:
 
 
 def create_duckdb_db(db_name: str = "sppd_db"):
-# Create a connection to a new DuckDB database
+    # Create a connection to a new DuckDB database
     db_path = "data/" + db_name + ".duckdb"
     if os.path.exists(db_path):
         os.remove(db_path)
-        
+
     con = duckdb.connect(db_path)
 
     # Get all parquet files in the local_db directory
@@ -192,7 +192,9 @@ def create_duckdb_db(db_name: str = "sppd_db"):
     for parquet_file in parquet_files:
         table_name = os.path.splitext(os.path.basename(parquet_file))[0]
         print(f"Creating table {table_name} from {parquet_file}")
-        con.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_parquet('{parquet_file}')")
+        con.execute(
+            f"CREATE TABLE {table_name} AS SELECT * FROM read_parquet('{parquet_file}')"
+        )
 
     con.close()
     print(f"\nDatabase created at {db_path}")
