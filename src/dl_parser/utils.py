@@ -1,5 +1,6 @@
 # data processing
 import polars as pl
+from polars.exceptions import SchemaError
 
 # web/xml scraping
 import requests
@@ -386,7 +387,8 @@ def remove_duplicates(df: pl.DataFrame, strategy: str) -> pl.DataFrame:
     # Convert 'updated' column to datetime if possible (in case already transformed to datetime)
     try:
         df = df.with_columns(pl.col("updated").str.strptime(pl.Datetime, strict=False))
-    except pl.ColumnNotFoundError:
+    # Exception for updated column being already a datetime
+    except SchemaError:
         pass
 
     # Sort and drop duplicates

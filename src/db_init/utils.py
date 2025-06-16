@@ -149,7 +149,7 @@ def get_parquet_base_table(
         raise RuntimeError(f"Error processing base table: {e}")
 
 
-def get_db_codice_tables(codice_url: str) -> list:
+def get_db_codice_tables(codice_url: str, with_mappings: bool = True) -> list:
 
     latest_codices = get_latest_codices(codice_url)
     codice_dfs = {
@@ -157,12 +157,15 @@ def get_db_codice_tables(codice_url: str) -> list:
         for name, (url, version) in latest_codices.items()
     }
 
+    if with_mappings:
+        codice_dfs = {k: v for k, v in codice_dfs.items() if k in mapping_codices}
+
     codice_paths = []
 
     # Iterate through the codices and save them to parquet files
     for codice_name, (codice_df, codice_version) in codice_dfs.items():
         # Save the DataFrame to a parquet file
-        codice_path = f"data/local_db/{codice_name}_{codice_version}.parquet"
+        codice_path = f"data/local_db/{codice_name}.parquet"
         codice_df.write_parquet(codice_path)
         print(f"Saved {codice_name} version {codice_version} to {codice_path}")
         # Append the paths to the list
@@ -170,3 +173,21 @@ def get_db_codice_tables(codice_url: str) -> list:
 
     # Return the list of paths to the parquet files
     return codice_paths
+
+
+mapping_codices = [
+    "AwardingCriteriaCode",
+    "CountryIdentificationCode",
+    "CPV2008",
+    "ContractFolderStatusCode",
+    "ContractingAuthorityActivityCode",
+    "FundingProgramCode",
+    "TenderResultCode",
+    "TenderingProcessCode",
+    "ContractCode",
+    "GoodsContractCode",
+    "ServiceContractCode",
+    "WorksContractCode",
+    "PatrimonialContractCode",
+    "SyndicationContractCode",
+]
