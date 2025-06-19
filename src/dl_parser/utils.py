@@ -67,7 +67,7 @@ def recursive_field_dict(field, field_dict: dict):
     Recursively converts an ATOM element and its children into a nested dictionary.
 
     Args:
-        field (xml.etree.ElementTree.Element): The ATOM element to be converted.
+        field (lxml.etree.Element): The ATOM element to be converted.
         field_dict (dict): The dictionary to store the converted ATOM structure.
 
     Returns:
