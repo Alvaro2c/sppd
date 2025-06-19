@@ -124,15 +124,17 @@ def get_atom_data(xml_file) -> tuple:
     """
     tree = ET.parse(xml_file)
     root = tree.getroot()
-    ns = {node[0]: node[1] for _, node in ET.iterparse(xml_file, events=["start-ns"])}
-    atom = "{" + ns[""] + "}"
-
-    for k, v in ns.items():
-        try:
-            ET.register_namespace(k, v)
-        except ValueError:
-            pass
-
+    
+    # Extract namespaces from root element attributes
+    ns = {}
+    for prefix, uri in root.nsmap.items() if hasattr(root, 'nsmap') else []:
+        ns[prefix or ''] = uri
+    
+    # Fallback to iterparse if nsmap not available
+    if not ns:
+        ns = {node[0]: node[1] for _, node in ET.iterparse(xml_file, events=["start-ns"])}
+    
+    atom = "{" + ns.get("", "") + "}"
     entries = root.findall(f"{atom}entry")
 
     return entries, ns
