@@ -124,16 +124,18 @@ def get_atom_data(xml_file) -> tuple:
     """
     tree = ET.parse(xml_file)
     root = tree.getroot()
-    
+
     # Extract namespaces from root element attributes
     ns = {}
-    for prefix, uri in root.nsmap.items() if hasattr(root, 'nsmap') else []:
-        ns[prefix or ''] = uri
-    
+    for prefix, uri in root.nsmap.items() if hasattr(root, "nsmap") else []:
+        ns[prefix or ""] = uri
+
     # Fallback to iterparse if nsmap not available
     if not ns:
-        ns = {node[0]: node[1] for _, node in ET.iterparse(xml_file, events=["start-ns"])}
-    
+        ns = {
+            node[0]: node[1] for _, node in ET.iterparse(xml_file, events=["start-ns"])
+        }
+
     atom = "{" + ns.get("", "") + "}"
     entries = root.findall(f"{atom}entry")
 
@@ -300,7 +302,10 @@ def get_concat_df(paths: list, raw_data_path: str) -> pl.DataFrame:
     parquet_files = [
         os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.endswith(".parquet")
     ]
-    final_df = pl.concat([pl.read_parquet(f) for f in parquet_files], how="diagonal")
+
+    final_df = pl.concat(
+        [pl.scan_parquet(f) for f in parquet_files], how="diagonal"
+    ).collect()
 
     # Cleanup temporary files
     for f in parquet_files:

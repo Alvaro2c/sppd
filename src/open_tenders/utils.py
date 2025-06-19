@@ -185,7 +185,9 @@ def get_parquet_open_tenders(paths: list, data_path: str, name="open_tenders") -
     parquet_files = [
         os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.endswith(".parquet")
     ]
-    final_df = pl.concat([pl.read_parquet(f) for f in parquet_files], how="diagonal")
+    final_df = pl.concat(
+        [pl.scan_parquet(f) for f in parquet_files], how="diagonal"
+    ).collect()
 
     final_df_no_dups = remove_duplicates(final_df, "link")
 
