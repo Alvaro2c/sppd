@@ -5,7 +5,7 @@ from polars.exceptions import SchemaError
 # web/xml scraping
 import requests
 import re
-import xml.etree.ElementTree as ET
+import lxml.etree as ET
 
 # local file handling
 import zipfile

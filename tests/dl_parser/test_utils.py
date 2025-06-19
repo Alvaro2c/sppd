@@ -16,7 +16,7 @@ from src.dl_parser.utils import (
     delete_files,
     dl_parser,
 )
-import xml.etree.ElementTree as ET
+import lxml.etree as ET
 from unittest.mock import patch, mock_open, ANY
 from bs4 import BeautifulSoup
 import polars as pl
@@ -76,7 +76,7 @@ def test_recursive_field_dict():
 
 def test_get_atom_data(sample_atom_content):
     root = ET.fromstring(sample_atom_content)
-    with patch("xml.etree.ElementTree.parse") as mock_parse, patch(
+    with patch("lxml.etree.parse") as mock_parse, patch(
         "builtins.open", mock_open(read_data=sample_atom_content)
     ):
         mock_parse.return_value = type("obj", (object,), {"getroot": lambda: root})

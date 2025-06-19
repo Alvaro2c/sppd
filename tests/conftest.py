@@ -1,6 +1,6 @@
 import pytest
 import polars as pl
-import xml.etree.ElementTree as ET
+import lxml.etree as ET
 
 
 @pytest.fixture
