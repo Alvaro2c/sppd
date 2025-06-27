@@ -13,6 +13,8 @@ import polars as pl
 from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
 import os
+import json
+from datetime import datetime
 
 source_url = "https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx"
 
