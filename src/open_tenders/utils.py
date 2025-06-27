@@ -88,7 +88,7 @@ def get_data_list_open_tenders(entries: list, ns: dict) -> list:
         details = entry.find("cac-place-ext:ContractFolderStatus", ns)
         details_dict = {}
 
-        if details:
+        if details is not None:
             recursive_field_dict(details, details_dict)
             flat_details = flatten_dict(details_dict)
 

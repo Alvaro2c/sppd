@@ -151,7 +151,11 @@ def get_parquet_base_table(
         raise RuntimeError(f"Error processing base table: {e}")
 
 
-def get_db_codice_tables(codice_url: str, with_mappings: bool = True) -> list:
+def get_db_codice_tables(
+        codice_url: str,
+        data_path: str,
+        with_mappings: bool = True,
+        mapping: str = "ot") -> list:
 
     latest_codices = get_latest_codices(codice_url)
     codice_dfs = {
@@ -160,14 +164,19 @@ def get_db_codice_tables(codice_url: str, with_mappings: bool = True) -> list:
     }
 
     if with_mappings:
-        codice_dfs = {k: v for k, v in codice_dfs.items() if k in mapping_codices}
+        if mapping == "ot":
+            codice_dfs = {k: v for k, v in codice_dfs.items() if k in mapping_codices_ot}
+        elif mapping == "full":
+            codice_dfs = {k: v for k, v in codice_dfs.items() if k in mapping_codices_full}
+        else:
+            raise ValueError(f"Invalid mapping: {mapping}")
 
     codice_paths = []
 
     # Iterate through the codices and save them to parquet files
     for codice_name, (codice_df, codice_version) in codice_dfs.items():
         # Save the DataFrame to a parquet file
-        codice_path = f"data/local_db/{codice_name}.parquet"
+        codice_path = f"{data_path}/{codice_name}.parquet"
         codice_df.write_parquet(codice_path)
         print(f"Saved {codice_name} version {codice_version} to {codice_path}")
         # Append the paths to the list
@@ -200,7 +209,7 @@ def create_duckdb_db(db_name: str = "sppd_db"):
     print(f"\nDatabase created at {db_path}")
 
 
-mapping_codices = [
+mapping_codices_full = [
     "AwardingCriteriaCode",
     "CountryIdentificationCode",
     "CPV2008",
@@ -215,4 +224,15 @@ mapping_codices = [
     "WorksContractCode",
     "PatrimonialContractCode",
     "SyndicationContractCode",
+]
+
+mapping_codices_ot = [
+    'ContractCode',
+    'GoodsContractCode', 
+    'ServiceContractCode',
+    'WorksContractCode',
+    'PatrimonialContractCode',
+    'SyndicationContractCode',
+    'TenderingProcessCode',
+    'CPV2008'
 ]
