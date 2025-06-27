@@ -152,10 +152,8 @@ def get_parquet_base_table(
 
 
 def get_db_codice_tables(
-        codice_url: str,
-        data_path: str,
-        with_mappings: bool = True,
-        mapping: str = "ot") -> list:
+    codice_url: str, data_path: str, with_mappings: bool = True, mapping: str = "ot"
+) -> list:
 
     latest_codices = get_latest_codices(codice_url)
     codice_dfs = {
@@ -165,9 +163,13 @@ def get_db_codice_tables(
 
     if with_mappings:
         if mapping == "ot":
-            codice_dfs = {k: v for k, v in codice_dfs.items() if k in mapping_codices_ot}
+            codice_dfs = {
+                k: v for k, v in codice_dfs.items() if k in mapping_codices_ot
+            }
         elif mapping == "full":
-            codice_dfs = {k: v for k, v in codice_dfs.items() if k in mapping_codices_full}
+            codice_dfs = {
+                k: v for k, v in codice_dfs.items() if k in mapping_codices_full
+            }
         else:
             raise ValueError(f"Invalid mapping: {mapping}")
 
@@ -227,12 +229,12 @@ mapping_codices_full = [
 ]
 
 mapping_codices_ot = [
-    'ContractCode',
-    'GoodsContractCode', 
-    'ServiceContractCode',
-    'WorksContractCode',
-    'PatrimonialContractCode',
-    'SyndicationContractCode',
-    'TenderingProcessCode',
-    'CPV2008'
+    "ContractCode",
+    "GoodsContractCode",
+    "ServiceContractCode",
+    "WorksContractCode",
+    "PatrimonialContractCode",
+    "SyndicationContractCode",
+    "TenderingProcessCode",
+    "CPV2008",
 ]

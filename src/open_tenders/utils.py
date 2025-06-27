@@ -218,3 +218,122 @@ def open_tenders_process(source_url: str, data_path: str, name="open_tenders"):
     print(
         f"Parquet file created at {parquet_dict['parquet_path']} with shape {parquet_dict['df_shape']}."
     )
+
+
+def map_codes(data_path: str = "data/open_tenders"):
+    """
+    Read parquet files and replace codes with their corresponding names from reference tables.
+
+    Parameters:
+    data_path (str): Path to directory containing parquet files
+    """
+
+    def make_map(filename, data_path):
+        df = pl.read_parquet(f"{data_path}/{filename}.parquet")
+        d = df.select(["code", "nombre"]).to_dict(as_series=False)
+        return dict(zip(d["code"], d["nombre"]))
+
+    # Mapping info: (column, parquet filename)
+    mapping_info = [
+        ("ProcessCode", "TenderingProcessCode"),
+        ("ProjectTypeCode", "ContractCode"),
+        ("CPVCode", "CPV2008"),
+        ("CPVLotCode", "CPV2008"),
+    ]
+
+    # Create all mapping dicts
+    maps = {col: make_map(parquet, data_path) for col, parquet in mapping_info}
+    # Subtype maps
+    subtype_maps = {
+        "Suministros": make_map("GoodsContractCode", data_path),
+        "Servicios": make_map("ServiceContractCode", data_path),
+        "Obras": make_map("WorksContractCode", data_path),
+        "Patrimonial": make_map("PatrimonialContractCode", data_path),
+    }
+
+    # Read open tenders data
+    df = pl.read_parquet(f"{data_path}/open_tenders.parquet")
+
+    # Map simple columns
+    for col in ["ProcessCode", "ProjectTypeCode", "CPVCode", "CPVLotCode"]:
+        df = df.with_columns(
+            [
+                pl.col(col)
+                .map_elements(lambda x, m=maps[col]: m.get(x, x), return_dtype=pl.Utf8)
+                .alias(col)
+            ]
+        )
+
+    # Conditional mapping for ProjectSubTypeCode
+    def map_project_subtype(row):
+        project_type = row["ProjectTypeCode"]
+        sub_type_code = row["ProjectSubTypeCode"]
+        m = subtype_maps.get(project_type)
+        if m:
+            return m.get(sub_type_code, sub_type_code)
+        return sub_type_code
+
+    df = df.with_columns(
+        [
+            pl.struct(["ProjectTypeCode", "ProjectSubTypeCode"])
+            .map_elements(map_project_subtype, return_dtype=pl.Utf8)
+            .alias("ProjectSubTypeCode")
+        ]
+    )
+
+    # Save mapped data
+    output_path = f"{data_path}/open_tenders_mapped.parquet"
+    df.write_parquet(output_path)
+    print(f"Mapped data saved to {output_path}")
+    return df
+
+
+def save_mapped_data_to_json(data_path: str = "data/open_tenders") -> str:
+    """
+    Convert mapped open tenders data to JSON with metadata.
+
+    Args:
+        data_path (str): Path to directory containing parquet files
+
+    Returns:
+        str: Path to saved JSON file
+    """
+    # Read mapped data
+    df = pl.read_parquet(f"{data_path}/open_tenders_mapped.parquet")
+
+    # Create metadata dictionary with datetime converted to unix timestamps
+    metadata = {
+        "total_records": df.height,
+        "columns": df.columns,
+        "schema": {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes)},
+        "created_at": int(datetime.now().timestamp()),
+        "last_updated": (
+            df.select(pl.col("updated")).max().item().isoformat()
+            if df.select(pl.col("updated")).max().item()
+            else None
+        ),
+    }
+
+    # Save metadata and data separately
+    json_path = f"{data_path}/open_tenders_mapped.json"
+
+    with open(json_path, "w", encoding="utf-8") as f:
+        # Write metadata first
+        f.write('{\n"metadata":')
+        json.dump(metadata, f, ensure_ascii=False, indent=2)
+
+        # Write data records one by one, converting datetimes to unix timestamps
+        f.write(',\n"data": [\n')
+        for i, record in enumerate(df.iter_rows(named=True)):
+            if i > 0:
+                f.write(",\n")
+            # Convert any datetime values to unix timestamps
+            record_unix = {
+                k: int(v.timestamp()) if hasattr(v, "timestamp") else v
+                for k, v in record.items()
+            }
+            json.dump(record_unix, f, ensure_ascii=False)
+        f.write("\n]}")
+
+    print(f"Mapped data with metadata saved to {json_path}")
+    return json_path
