@@ -167,7 +167,7 @@ def get_data_list(entries: list, ns: dict) -> list:
         # Generate full details information
         details = entry.find("cac-place-ext:ContractFolderStatus", ns)
         details_dict = {}
-        if details:
+        if details is not None:
             recursive_field_dict(details, details_dict)
             flat_details = flatten_dict(details_dict)
             entry_data.update(flat_details)
