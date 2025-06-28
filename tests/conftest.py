@@ -448,6 +448,7 @@ def sample_mapped_data_with_updated():
             "updated": [datetime(2023, 1, 1), datetime(2023, 1, 2)],
             "ProcessCode": ["Automatically evaluated", "Not automatically evaluated"],
             "ProjectTypeCode": ["Goods", "Services"],
+            "EstimatedAmount": [50000, 100000],
         }
     )
 

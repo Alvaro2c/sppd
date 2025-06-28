@@ -145,7 +145,16 @@ def get_data_list_open_tenders(entries: list, ns: dict) -> list:
             flat_details = flatten_dict(details_dict)
 
         status = flat_details.get("ContractFolderStatusCode")
+        end_date = flat_details.get(
+            "TenderingProcess.TenderSubmissionDeadlinePeriod.EndDate"
+        )
+
+        # First exclude non-PUB status
         if status != "PUB":
+            continue
+            
+        # Then for PUB status, check end date
+        if end_date is not None and datetime.strptime(end_date, "%Y-%m-%d").date() <= datetime.now().date():
             continue
 
         else:
@@ -159,6 +168,15 @@ def get_data_list_open_tenders(entries: list, ns: dict) -> list:
             entry_data.pop("id")
             entry_data.pop("summary")
             entry_data.pop("ContractFolderStatus")
+
+            # Cast monetary amounts to float32
+            amount_fields = ["EstimatedAmount", "TotalAmount", "TaxExclusiveAmount"]
+            for field in amount_fields:
+                if field in entry_data:
+                    try:
+                        entry_data[field] = float(entry_data[field])
+                    except (ValueError, TypeError):
+                        entry_data[field] = None
 
             data.append(entry_data)
 
@@ -498,21 +516,53 @@ def save_mapped_data_to_json(
     # Read mapped data
     df = pl.read_parquet(f"{data_path}/{name}.parquet")
 
+    # Cast EstimatedAmount to float
+    df = df.with_columns(pl.col("EstimatedAmount").cast(pl.Float64))
+
     # Create metadata dictionary with datetime converted to unix timestamps
     metadata = {
         "total_records": df.height,
-        "columns": df.columns,
         "schema": {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes)},
         "created_at": int(datetime.now().timestamp()),
-        "last_updated": (
+        "most_recent_update": (
             df.select(pl.col("updated")).max().item().isoformat()
             if df.select(pl.col("updated")).max().item()
             else None
         ),
+        "earliest_update": (
+            df.select(pl.col("updated")).min().item().isoformat()
+            if df.select(pl.col("updated")).min().item()
+            else None
+        ),
+        "total_estimated_amount": (
+            df.select(pl.col("EstimatedAmount")).sum().item()
+            if df.select(pl.col("EstimatedAmount")).sum().item()
+            else 0
+        ),
+        "max_estimated_amount": (
+            df.select(pl.col("EstimatedAmount")).max().item()
+            if df.select(pl.col("EstimatedAmount")).max().item()
+            else 0
+        ),
+        "min_estimated_amount": (
+            df.select(pl.col("EstimatedAmount")).min().item()
+            if df.select(pl.col("EstimatedAmount")).min().item()
+            else 0
+        ),
+        "avg_estimated_amount": (
+            df.select(pl.col("EstimatedAmount")).mean().item()
+            if df.select(pl.col("EstimatedAmount")).mean().item()
+            else 0
+        ),
+        "median_estimated_amount": (
+            df.select(pl.col("EstimatedAmount")).median().item()
+            if df.select(pl.col("EstimatedAmount")).median().item()
+            else 0
+        ),
     }
 
     # Save metadata and data separately
-    json_path = f"{data_path}/open_tenders_mapped.json"
+    json_path = f"{data_path}/{name}.json"
 
     with open(json_path, "w", encoding="utf-8") as f:
         # Write metadata first

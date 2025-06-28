@@ -128,18 +128,18 @@ def test_code_mapping_with_unknown_codes(
     assert "999" in result["ProjectSubTypeCode"].to_list()
 
 
-def test_json_conversion_with_metadata(tmp_path, sample_mapped_data_with_metadata):
-    """Test successful JSON conversion with metadata"""
+def test_json_conversion(tmp_path, sample_mapped_data_with_updated):
+    """Test JSON conversion with current implementation"""
     data_path = str(tmp_path)
 
-    # Use fixture for mapped data
-    sample_mapped_data_with_metadata.write_parquet(f"{data_path}/open_tenders.parquet")
+    # Use fixture for mapped data with updated field
+    sample_mapped_data_with_updated.write_parquet(f"{data_path}/open_tenders.parquet")
 
     with patch("builtins.print") as mock_print:
         result = save_mapped_data_to_json(data_path, "open_tenders")
 
         # Check output file was created
-        output_file = Path(f"{data_path}/open_tenders_mapped.json")
+        output_file = Path(f"{data_path}/open_tenders.json")
         assert output_file.exists()
         assert result == str(output_file)
 
@@ -154,16 +154,26 @@ def test_json_conversion_with_metadata(tmp_path, sample_mapped_data_with_metadat
         assert json_data["data"][0]["ID"] == "123"
         assert json_data["data"][1]["ID"] == "456"
 
-        # Check metadata structure
+        # Check metadata structure matches current implementation
         metadata = json_data["metadata"]
         assert "total_records" in metadata
-        assert "columns" in metadata
         assert "schema" in metadata
         assert "created_at" in metadata
-        assert "last_updated" in metadata
+        assert "most_recent_update" in metadata
+        assert "earliest_update" in metadata
+        assert "total_estimated_amount" in metadata
 
         # Check that datetime was converted to timestamp
         assert isinstance(metadata["created_at"], int)
+
+        # Check that most_recent_update and earliest_update are properly set
+        assert metadata["most_recent_update"] is not None
+        assert metadata["earliest_update"] is not None
+        assert "2023-01-02" in metadata["most_recent_update"]  # Should be the max date
+        assert "2023-01-01" in metadata["earliest_update"]  # Should be the min date
+
+        # Check that total_estimated_amount is calculated
+        assert metadata["total_estimated_amount"] == 150000  # 50000 + 100000
 
         mock_print.assert_called_with(
             f"Mapped data with metadata saved to {output_file}"
@@ -184,30 +194,6 @@ def test_json_conversion_without_updated_field(
     # Since the actual function assumes 'updated' column exists, we'll test the error case
     with pytest.raises(Exception):  # Should raise ColumnNotFoundError
         save_mapped_data_to_json(data_path, "open_tenders")
-
-
-def test_json_conversion_with_updated_field(tmp_path, sample_mapped_data_with_updated):
-    """Test JSON conversion with 'updated' field present"""
-    data_path = str(tmp_path)
-
-    # Use fixture for mapped data with updated field
-    sample_mapped_data_with_updated.write_parquet(f"{data_path}/open_tenders.parquet")
-
-    save_mapped_data_to_json(data_path, "open_tenders")
-
-    # Check output file was created
-    output_file = Path(f"{data_path}/open_tenders_mapped.json")
-    assert output_file.exists()
-
-    # Check JSON content
-    with open(output_file, "r", encoding="utf-8") as f:
-        json_data = json.load(f)
-
-    # Check that last_updated is properly set when field exists
-    assert json_data["metadata"]["last_updated"] is not None
-    assert (
-        "2023-01-02" in json_data["metadata"]["last_updated"]
-    )  # Should be the max date
 
 
 def test_missing_parquet_file_raises_error(tmp_path):
