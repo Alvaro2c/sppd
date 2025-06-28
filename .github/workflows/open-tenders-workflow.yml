@@ -1,0 +1,180 @@
+name: Open Tenders Data Pipeline
+
+on:
+  workflow_dispatch: # Manual trigger
+  schedule:
+    # Run every day at 8:30 AM CET (7:30 AM UTC)
+    - cron: '30 7 * * *'
+
+env:
+  PYTHON_VERSION: '3.10.6'
+  DATA_PATH: 'data/open_tenders'
+  TARGET_REPO: ${{ secrets.SPPD_OT_REPO }}
+
+jobs:
+  process-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30  # Prevent hanging jobs
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1  # Shallow clone for faster checkout
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+      timeout-minutes: 10
+
+    - name: Create data directory
+      run: |
+        mkdir -p ${{ env.DATA_PATH }}
+
+    - name: Verify data source URLs
+      run: |
+        echo "Verifying data source URLs..."
+        
+        # Test the main open tenders URL
+        OPEN_TENDERS_URL="https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx"
+        echo "Testing open tenders URL: $OPEN_TENDERS_URL"
+        if curl -f -s -o /dev/null --connect-timeout 30 --max-time 60 "$OPEN_TENDERS_URL"; then
+          echo "✅ Open tenders URL is accessible"
+        else
+          echo "❌ Open tenders URL is not accessible"
+          exit 1
+        fi
+        
+        # Test the codice URL
+        CODICE_URL="https://contrataciondelestado.es/codice/cl/"
+        echo "Testing codice URL: $CODICE_URL"
+        if curl -f -s -o /dev/null --connect-timeout 30 --max-time 60 "$CODICE_URL"; then
+          echo "✅ Codice URL is accessible"
+        else
+          echo "❌ Codice URL is not accessible"
+          exit 1
+        fi
+        
+        echo "✅ All data source URLs are accessible"
+      timeout-minutes: 5
+
+    - name: Run Open Tenders Pipeline
+      run: |
+        python src/open_tenders/main.py
+      timeout-minutes: 15
+      env:
+        PYTHONUNBUFFERED: 1  # Ensure real-time output
+
+    - name: Verify JSON output
+      run: |
+        # Check if JSON file was created
+        if [ ! -f "${{ env.DATA_PATH }}/open_tenders.json" ]; then
+          echo "Error: JSON output file not found"
+          exit 1
+        fi
+        
+        # Check file size to ensure it's not empty
+        FILE_SIZE=$(stat -c%s "${{ env.DATA_PATH }}/open_tenders.json")
+        if [ "$FILE_SIZE" -eq 0 ]; then
+          echo "Error: JSON output file is empty"
+          exit 1
+        fi
+        
+        echo "JSON output file created successfully (size: ${FILE_SIZE} bytes)"
+        ls -la ${{ env.DATA_PATH }}/
+      timeout-minutes: 2
+
+    - name: Clone Target Repository and Copy Output
+      env:
+        PAT: ${{ secrets.PAT }}
+        TARGET_REPO: ${{ secrets.SPPD_OT_REPO }}
+        TARGET_BRANCH: ${{ secrets.TARGET_BRANCH || 'main' }}
+      run: |
+        # Configure git with proper error handling
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "GitHub Actions Bot"
+        git config --global init.defaultBranch main
+        
+        # Clone the target repository with error handling
+        if ! git clone https://x-access-token:${PAT}@github.com/${TARGET_REPO}.git target-repo; then
+          echo "❌ Failed to clone target repository"
+          exit 1
+        fi
+        
+        # Create timestamp for the commit
+        TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        
+        # Copy the JSON output to the target repository
+        # Create the data directory if it doesn't exist
+        mkdir -p target-repo/data
+        
+        # Copy with error checking
+        if ! cp ${{ env.DATA_PATH }}/open_tenders.json target-repo/data/open_tenders.json; then
+          echo "❌ Failed to copy JSON file"
+          exit 1
+        fi
+        
+        # Commit and push to the target repository with proper error handling
+        cd target-repo
+        
+        # Check if we're on the correct branch
+        if ! git checkout ${TARGET_BRANCH}; then
+          echo "❌ Failed to checkout branch ${TARGET_BRANCH}"
+          exit 1
+        fi
+        
+        # Check if there are changes to commit
+        if git diff --quiet; then
+          echo "ℹ️ No changes to commit"
+        else
+          git add .
+          if ! git commit -m "Update open tenders data from pipeline - ${TIMESTAMP}"; then
+            echo "❌ Failed to commit changes"
+            exit 1
+          fi
+          
+          if ! git push origin ${TARGET_BRANCH}; then
+            echo "❌ Failed to push changes"
+            exit 1
+          fi
+          
+          echo "✅ Successfully pushed data to target repository"
+        fi
+      timeout-minutes: 10
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      if: always()  # Upload even if previous steps failed
+      with:
+        name: open-tenders-data-${{ github.run_id }}
+        path: ${{ env.DATA_PATH }}/
+        retention-days: 7
+
+    - name: Notify completion
+      if: success()
+      run: |
+        echo "✅ Open tenders pipeline completed successfully"
+        echo "📊 Data processed and pushed to target repository"
+        echo "📁 Output files available in ${{ env.DATA_PATH }}/"
+        echo "🕒 Completed at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+    - name: Notify failure
+      if: failure()
+      run: |
+        echo "❌ Open tenders pipeline failed"
+        echo "🕒 Failed at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+        echo "📋 Check the logs above for error details" 

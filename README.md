@@ -3,70 +3,73 @@
 # SPPD Spanish Public Procurement Data
 
 ## Project Overview
-This repository focuses on creating Python scripts and tools to efficiently download, parse, access, transform, and interact with Spanish public procurement data.
-
-The official source of the data is the [Spanish Ministry of Finance](https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx).
+Python tools for downloading, processing, and analyzing Spanish public procurement data from the [Spanish Ministry of Finance](https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx).
 
 ## Current Version
 
-**Version:** 0.2.0
-
+**Version:** 0.3.0
 
 ## Project Status
 
-Currently the downloader and parser (dl_parser module) is fully functional, now implemented with parallel and batch processing for speed, stability and scalability.
+### ✅ Implemented Features
 
-## Upcoming Features
+- **Data Downloader & Parser**: Parallel and batch processing for historical data
+- **Open Tenders Pipeline**: Automated daily processing of recent open tenders
+- **GitHub Actions Workflow**: Automated data pipeline with cross-repository updates
+- **Code Mapping**: Human-readable field mapping for procurement codes
+- **Multiple Output Formats**: Parquet and JSON data exports
 
-- Database creation with raw data from parquet files
-- Streamlit app to interact with the database
+### 📊 Data Processing
 
-## Getting Started
+- **Historical Data**: Full download and processing of past procurement data
+- **Open Tenders**: Daily updates of current open tenders (last 3 months)
+- **Code Tables**: Reference mappings for procurement categories and regions
+- **Data Validation**: URL verification and output file validation
+
+## Quick Start
 
 ### Installation
 
-1. Clone the repository:
-    ```sh
-    git clone https://github.com/alvaro2c/sppd.git
-    ```
-2. Navigate to the project directory:
-    ```sh
-    cd sppd
-    ```
-3. Install the required packages:
-    ```sh
-    pip install -e .
-    ```
+```sh
+git clone https://github.com/alvaro2c/sppd.git
+cd sppd
+pip install -e .
+```
 
-### Using the modules
+### Usage
 
-
-#### dl_parser
-
-To use dl_parser module, use the following command:
+#### Historical Data Processing
 ```sh
 python src/dl_parser/main.py
 ```
 
-The dl_parser module follows these steps:
-1. Fetches available data periods from the Spanish Ministry of Finance website
-2. Prompts user to select:
-   - Data periods (year or month)
-   - Duplicate handling strategy (by id, link, title, or keep all)
-   - Mapping application (to extract relevant fields only)
-   - Whether to delete downloaded files after processing
-3. Downloads and extracts ATOM files for the selected period(s)
-4. Processes ATOM data (batch and parallel processing)
-5. Concatenates all data into a single DataFrame
-6. Handles duplicates according to chosen strategy (select None if you want full raw data)
-7. Aplies mapping if selected (do not selected if you want full raw data)
-8. Saves final data as a parquet file
+#### Open Tenders Pipeline
+```sh
+python src/open_tenders/main.py
+```
 
+#### Automated Workflow
+- Configure GitHub Actions secrets
+- Run manually or let it execute daily at 8:30 AM CET
+- Updates target repository automatically
+
+## Project Structure
+
+```
+sppd/
+├── src/
+│   ├── dl_parser/          # Historical data processing
+│   ├── open_tenders/       # Open tenders pipeline
+│   └── db_init/            # Database initialization
+├── data/                   # Processed data output
+├── .github/workflows/      # Automated pipelines
+└── requirements.txt        # Dependencies
+```
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License - see LICENSE file for details.
 
 ## Contact
 
-For any questions or suggestions, please open an issue or contact @alvaro2c.
+For questions or suggestions, open an issue or contact @alvaro2c.
