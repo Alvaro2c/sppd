@@ -152,9 +152,12 @@ def get_data_list_open_tenders(entries: list, ns: dict) -> list:
         # First exclude non-PUB status
         if status != "PUB":
             continue
-            
+
         # Then for PUB status, check end date
-        if end_date is not None and datetime.strptime(end_date, "%Y-%m-%d").date() <= datetime.now().date():
+        if (
+            end_date is None
+            or datetime.strptime(end_date, "%Y-%m-%d").date() <= datetime.now().date()
+        ):
             continue
 
         else:
@@ -234,7 +237,7 @@ def process_batch(paths_batch, batch_num, tmp_dir):
         >>> print(f"Processed {records} records in batch 1")
     """
     results = []
-    failed_paths = []
+    null_paths = []
     max_workers = max((os.cpu_count()) - 2, 1)
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -244,10 +247,12 @@ def process_batch(paths_batch, batch_num, tmp_dir):
             if result is not None:
                 results.extend(result)
             else:
-                failed_paths.append(path)
+                null_paths.append(path)
 
-    if failed_paths:
-        print(f"Failed to process {len(failed_paths)} files in batch {batch_num}")
+    if null_paths:
+        print(
+            f"Processing gave null results for {len(null_paths)} files in batch {batch_num}"
+        )
 
     if results:
         df = pl.DataFrame(results)

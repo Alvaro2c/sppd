@@ -1,7 +1,7 @@
 import pytest
 import polars as pl
 import lxml.etree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 @pytest.fixture
@@ -374,6 +374,9 @@ def sample_flattened_details_pub():
         "LocatedContractingParty.Party.PartyName.Name": "Test Party",
         "LocatedContractingParty.Party.PostalAddress.CityName": "Madrid",
         "ProcurementProject.TypeCode": "Suministros",
+        "TenderingProcess.TenderSubmissionDeadlinePeriod.EndDate": (
+            datetime.now().date() + timedelta(days=2)
+        ).strftime("%Y-%m-%d"),
     }
 
 
