@@ -1,5 +1,6 @@
 from src.common.utils import get_soup
 from src.dl_parser.utils import remove_duplicates, apply_mappings
+from src.dl_parser.mappings import mappings
 
 import os
 import polars as pl
@@ -137,7 +138,7 @@ def get_parquet_base_table(
 
         # Apply mappings if required
         if apply_mapping.upper() == "Y":
-            df_no_dups = apply_mappings(df_no_dups)
+            df_no_dups = apply_mappings(df_no_dups, mappings)
 
         # Save the processed DataFrame to a parquet file
         base_table_path = f"{local_db_path}/base_table.parquet"
