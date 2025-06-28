@@ -1,7 +1,5 @@
 from src.db_init.utils import (
     get_parquet_base_table,
-    get_latest_codices,
-    get_codice_df,
     create_db_local_folder,
     get_db_codice_tables,
     create_duckdb_db,
@@ -9,8 +7,6 @@ from src.db_init.utils import (
 from unittest.mock import patch, MagicMock
 import polars as pl
 import os
-import pytest
-import lxml.etree as ET
 
 
 def test_get_parquet_base_table(tmp_path, sample_df_with_duplicates):

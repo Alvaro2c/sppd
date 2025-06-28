@@ -31,7 +31,6 @@ Requirements:
 """
 
 import logging
-from pathlib import Path
 from datetime import datetime
 from src.open_tenders.utils import (
     open_tenders_parquet,
@@ -65,7 +64,10 @@ def main():
     logger.info(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info("")
 
-    source_url = "https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx"
+    source_url = (
+        "https://www.hacienda.gob.es/es-ES/GobiernoAbierto/"
+        "Datos%20Abiertos/Paginas/LicitacionesContratante.aspx"
+    )
     codice_url = "https://contrataciondelestado.es/codice/cl/"
     data_path = "data/open_tenders"
 

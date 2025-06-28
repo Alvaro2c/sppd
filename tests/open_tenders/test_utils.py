@@ -1,6 +1,5 @@
 import pytest
-import polars as pl
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from pathlib import Path
 import json
 
@@ -20,9 +19,7 @@ def test_extract_pub_status_entries(
     entries = [sample_atom_entry_with_all_fields]
     ns = sample_namespaces
 
-    with patch("src.open_tenders.utils.recursive_field_dict") as mock_recursive, patch(
-        "src.open_tenders.utils.flatten_dict"
-    ) as mock_flatten:
+    with patch("src.open_tenders.utils.flatten_dict") as mock_flatten:
 
         # Mock flattened details with PUB status
         mock_flatten.return_value = sample_flattened_details_pub
@@ -54,9 +51,7 @@ def test_filter_non_pub_entries(
     entries = [sample_atom_entry_with_all_fields]
     ns = sample_namespaces
 
-    with patch("src.open_tenders.utils.recursive_field_dict") as mock_recursive, patch(
-        "src.open_tenders.utils.flatten_dict"
-    ) as mock_flatten:
+    with patch("src.open_tenders.utils.flatten_dict") as mock_flatten:
 
         # Mock flattened details with non-PUB status
         mock_flatten.return_value = sample_flattened_details_non_pub
@@ -119,19 +114,18 @@ def test_code_mapping_with_unknown_codes(
     for filename, df in sample_mapping_tables.items():
         df.write_parquet(f"{data_path}/{filename}.parquet")
 
-    with patch("builtins.print") as mock_print:
-        result = map_codes(data_path, "open_tenders_raw", "open_tenders")
+    result = map_codes(data_path, "open_tenders_raw", "open_tenders")
 
-        # Known codes should be mapped
-        assert "Automatically evaluated" in result["ProcessCode"].to_list()
-        assert "Goods" in result["ProjectTypeCode"].to_list()
-        assert "Office and computing machinery" in result["CPVCode"].to_list()
+    # Known codes should be mapped
+    assert "Automatically evaluated" in result["ProcessCode"].to_list()
+    assert "Goods" in result["ProjectTypeCode"].to_list()
+    assert "Office and computing machinery" in result["CPVCode"].to_list()
 
-        # Unknown codes should remain unchanged
-        assert "UNKNOWN" in result["ProcessCode"].to_list()
-        assert "UnknownType" in result["ProjectTypeCode"].to_list()
-        assert "99999999" in result["CPVCode"].to_list()
-        assert "999" in result["ProjectSubTypeCode"].to_list()
+    # Unknown codes should remain unchanged
+    assert "UNKNOWN" in result["ProcessCode"].to_list()
+    assert "UnknownType" in result["ProjectTypeCode"].to_list()
+    assert "99999999" in result["CPVCode"].to_list()
+    assert "999" in result["ProjectSubTypeCode"].to_list()
 
 
 def test_json_conversion_with_metadata(tmp_path, sample_mapped_data_with_metadata):
@@ -199,22 +193,21 @@ def test_json_conversion_with_updated_field(tmp_path, sample_mapped_data_with_up
     # Use fixture for mapped data with updated field
     sample_mapped_data_with_updated.write_parquet(f"{data_path}/open_tenders.parquet")
 
-    with patch("builtins.print") as mock_print:
-        result = save_mapped_data_to_json(data_path, "open_tenders")
+    save_mapped_data_to_json(data_path, "open_tenders")
 
-        # Check output file was created
-        output_file = Path(f"{data_path}/open_tenders_mapped.json")
-        assert output_file.exists()
+    # Check output file was created
+    output_file = Path(f"{data_path}/open_tenders_mapped.json")
+    assert output_file.exists()
 
-        # Check JSON content
-        with open(output_file, "r", encoding="utf-8") as f:
-            json_data = json.load(f)
+    # Check JSON content
+    with open(output_file, "r", encoding="utf-8") as f:
+        json_data = json.load(f)
 
-        # Check that last_updated is properly set when field exists
-        assert json_data["metadata"]["last_updated"] is not None
-        assert (
-            "2023-01-02" in json_data["metadata"]["last_updated"]
-        )  # Should be the max date
+    # Check that last_updated is properly set when field exists
+    assert json_data["metadata"]["last_updated"] is not None
+    assert (
+        "2023-01-02" in json_data["metadata"]["last_updated"]
+    )  # Should be the max date
 
 
 def test_missing_parquet_file_raises_error(tmp_path):
