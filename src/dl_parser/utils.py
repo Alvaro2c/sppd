@@ -76,7 +76,7 @@ def recursive_field_dict(field, field_dict: dict):
     for child in field:
         tag = child.tag.split("}")[-1]
         has_children = len(child) > 0
-        
+
         if not has_children:
             # Handle leaf elements (no children)
             _add_to_dict(field_dict, tag, child.text)
@@ -90,7 +90,7 @@ def recursive_field_dict(field, field_dict: dict):
                 existing_value = field_dict[tag]
                 if not isinstance(existing_value, list):
                     field_dict[tag] = [existing_value]
-                
+
                 new_dict = {}
                 recursive_field_dict(child, new_dict)
                 field_dict[tag].append(new_dict)
@@ -99,7 +99,7 @@ def recursive_field_dict(field, field_dict: dict):
 def _add_to_dict(d: dict, key: str, value: str):
     """
     Helper function to add a value to a dictionary, handling list conversion when needed.
-    
+
     Args:
         d (dict): The dictionary to modify
         key (str): The key to add/update
@@ -134,32 +134,32 @@ def flatten_dict(d: dict, parent_key="", sep=".") -> dict:
     items = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        
+
         if isinstance(v, dict):
             items.extend(flatten_dict(v, new_key, sep=sep).items())
         elif isinstance(v, list):
             items.extend(_flatten_list(v, new_key, sep))
         elif v:  # Non-empty, non-dict, non-list values
             items.append((new_key, v))
-    
+
     return dict(items)
 
 
 def _flatten_list(lst: list, key: str, sep: str) -> list:
     """
     Helper function to flatten a list value in the dictionary.
-    
+
     Args:
         lst (list): The list to flatten
         key (str): The key prefix for the flattened items
         sep (str): The separator to use
-        
+
     Returns:
         list: List of (key, value) tuples
     """
     if not lst:  # Empty list
         return []
-    
+
     # Handle lists of dictionaries
     if all(isinstance(item, dict) for item in lst):
         return _flatten_dict_list(lst, key, sep)
@@ -172,12 +172,12 @@ def _flatten_list(lst: list, key: str, sep: str) -> list:
 def _flatten_dict_list(lst: list, key: str, sep: str) -> list:
     """
     Helper function to flatten a list of dictionaries.
-    
+
     Args:
         lst (list): List of dictionaries to flatten
         key (str): The key prefix for the flattened items
         sep (str): The separator to use
-        
+
     Returns:
         list: List of (key, value) tuples
     """
@@ -192,12 +192,12 @@ def _flatten_dict_list(lst: list, key: str, sep: str) -> list:
             if values:
                 return [(f"{key}{sep}{first_key}", "_".join(values))]
             return []
-    
+
     # Different keys or multiple keys - use numbered approach
     items = []
     for i, item in enumerate(lst):
         items.extend(flatten_dict(item, f"{key}_{i}", sep=sep).items())
-    
+
     return items
 
 

@@ -83,8 +83,16 @@ def test_simple_code_mapping(
         assert "Not automatically evaluated" in result["ProcessCode"].to_list()
         assert "Goods" in result["ProjectTypeCode"].to_list()
         assert "Services" in result["ProjectTypeCode"].to_list()
-        assert "Office and computing machinery" in result["CPVCode"].to_list()
-        assert "IT services" in result["CPVCode"].to_list()
+
+        # Check CPV code mapping - now returns lists
+        cpv_codes = result["CPVCode"].to_list()
+        assert len(cpv_codes) == 2
+
+        # First row: single CPV code "30000000" -> ["Office and computing machinery"]
+        assert cpv_codes[0] == ["Office and computing machinery"]
+
+        # Second row: multiple CPV codes "72000000_30000000" -> ["IT services", "Office and computing machinery"]
+        assert cpv_codes[1] == ["IT services", "Office and computing machinery"]
 
         # Note: The current code has a bug where subtype mapping doesn't work
         # because it uses mapped ProjectTypeCode values to look up in a dictionary
@@ -119,12 +127,20 @@ def test_code_mapping_with_unknown_codes(
     # Known codes should be mapped
     assert "Automatically evaluated" in result["ProcessCode"].to_list()
     assert "Goods" in result["ProjectTypeCode"].to_list()
-    assert "Office and computing machinery" in result["CPVCode"].to_list()
+
+    # Check CPV code mapping with unknown codes
+    cpv_codes = result["CPVCode"].to_list()
+    assert len(cpv_codes) == 2
+
+    # First row: known CPV code "30000000" -> ["Office and computing machinery"]
+    assert cpv_codes[0] == ["Office and computing machinery"]
+
+    # Second row: mixed known/unknown codes "99999999_30000000" -> ["99999999", "Office and computing machinery"]
+    assert cpv_codes[1] == ["99999999", "Office and computing machinery"]
 
     # Unknown codes should remain unchanged
     assert "UNKNOWN" in result["ProcessCode"].to_list()
     assert "UnknownType" in result["ProjectTypeCode"].to_list()
-    assert "99999999" in result["CPVCode"].to_list()
     assert "999" in result["ProjectSubTypeCode"].to_list()
 
 
@@ -232,3 +248,35 @@ def test_open_tenders_cols_mapping_values():
         assert value.isidentifier() or value.replace(" ", "").isalnum()
         assert len(value) > 0
         assert not value.startswith("_")  # Should not start with underscore
+
+
+def test_cpv_code_edge_cases(tmp_path, sample_mapping_tables, sample_edge_case_data):
+    """Test CPV code mapping with edge cases"""
+    data_path = str(tmp_path)
+
+    # Use the fixture for edge case data
+    sample_edge_case_data.write_parquet(f"{data_path}/open_tenders_raw.parquet")
+
+    # Create sample mapping files
+    for filename, df in sample_mapping_tables.items():
+        df.write_parquet(f"{data_path}/{filename}.parquet")
+
+    result = map_codes(data_path, "open_tenders_raw", "open_tenders")
+
+    # Check CPV code mapping for edge cases
+    cpv_codes = result["CPVCode"].to_list()
+
+    # Empty string should return empty list
+    assert cpv_codes[0] == []
+
+    # Single known code should return list with one item
+    assert cpv_codes[1] == ["Office and computing machinery"]
+
+    # Code ending with underscore should ignore empty part
+    assert cpv_codes[2] == ["Office and computing machinery"]
+
+    # Code starting with underscore should ignore empty part
+    assert cpv_codes[3] == ["Office and computing machinery"]
+
+    # Multiple underscores should be handled correctly
+    assert cpv_codes[4] == ["Office and computing machinery", "IT services"]

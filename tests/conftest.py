@@ -393,7 +393,7 @@ def sample_raw_data_for_mapping():
         {
             "ProcessCode": ["OBJ", "SUBJ"],
             "ProjectTypeCode": ["Suministros", "Servicios"],
-            "CPVCode": ["30000000", "72000000"],
+            "CPVCode": ["30000000", "72000000_30000000"],  # Single and multiple codes
             "CPVLotCode": ["30000000", "72000000"],
             "ProjectSubTypeCode": ["001", "002"],
         }
@@ -407,7 +407,10 @@ def sample_raw_data_with_unknown_codes():
         {
             "ProcessCode": ["OBJ", "UNKNOWN"],
             "ProjectTypeCode": ["Suministros", "UnknownType"],
-            "CPVCode": ["30000000", "99999999"],
+            "CPVCode": [
+                "30000000",
+                "99999999_30000000",
+            ],  # Known and unknown codes mixed
             "CPVLotCode": ["30000000", "99999999"],
             "ProjectSubTypeCode": ["001", "999"],
         }
@@ -443,14 +446,22 @@ def sample_mapped_data_without_updated():
 
 @pytest.fixture
 def sample_mapped_data_with_updated():
-    """Sample mapped data with updated field for JSON conversion tests"""
+    """Sample mapped data with updated field for testing JSON conversion"""
     return pl.DataFrame(
         {
             "ID": ["123", "456"],
-            "title": ["Tender 1", "Tender 2"],
+            "title": ["Test Tender 1", "Test Tender 2"],
+            "link": ["http://example.com/1", "http://example.com/2"],
             "updated": [datetime(2023, 1, 1), datetime(2023, 1, 2)],
-            "ProcessCode": ["Automatically evaluated", "Not automatically evaluated"],
+            "ContractingParty": ["Test Party 1", "Test Party 2"],
+            "City": ["Madrid", "Barcelona"],
             "ProjectTypeCode": ["Goods", "Services"],
+            "ProcessCode": ["Automatically evaluated", "Not automatically evaluated"],
+            "CPVCode": [
+                ["Office and computing machinery"],
+                ["IT services", "Office and computing machinery"],
+            ],
+            "ProjectSubTypeCode": ["001", "002"],
             "EstimatedAmount": [50000, 100000],
         }
     )
@@ -555,3 +566,29 @@ def sample_codice_data():
             "2023",
         ),
     }
+
+
+@pytest.fixture
+def sample_edge_case_data():
+    """Sample data with CPV code edge cases for testing"""
+    return pl.DataFrame(
+        {
+            "ProcessCode": ["OBJ", "OBJ", "OBJ", "OBJ", "OBJ"],
+            "ProjectTypeCode": [
+                "Suministros",
+                "Suministros",
+                "Suministros",
+                "Suministros",
+                "Suministros",
+            ],
+            "CPVCode": [
+                "",
+                "30000000",
+                "30000000_",
+                "_30000000",
+                "30000000__72000000",
+            ],  # Edge cases
+            "CPVLotCode": ["30000000", "30000000", "30000000", "30000000", "30000000"],
+            "ProjectSubTypeCode": ["001", "001", "001", "001", "001"],
+        }
+    )

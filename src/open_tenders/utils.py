@@ -54,18 +54,15 @@ data_path = "data/open_tenders"
 
 open_tenders_cols = {
     "ContractFolderID": "ID",
-    "ContractFolderStatusCode": "StatusCode",
+    "ContractFolderStatusCode": "Status",
     "LocatedContractingParty.Party.PartyName.Name": "ContractingParty",
     "LocatedContractingParty.Party.PostalAddress.CityName": "City",
     "LocatedContractingParty.Party.PostalAddress.Country.Name": "Country",
-    "LocatedContractingParty.Party.PostalAddress.PostalZone": "ZipCode",
+    "LocatedContractingParty.Party.PostalAddress.PostalZone": "PostalZone",
     "ProcurementProject.TypeCode": "ProjectTypeCode",
     "ProcurementProject.SubTypeCode": "ProjectSubTypeCode",
     "ProcurementProject.RequiredCommodityClassification.ItemClassificationCode": "CPVCode",
-    "ProcurementProjectLot.ProcurementProject.RequiredCommodityClassification.ItemClassificationCode": "CPVLotCode",
     "ProcurementProject.BudgetAmount.EstimatedOverallContractAmount": "EstimatedAmount",
-    "ProcurementProject.BudgetAmount.TotalAmount": "TotalAmount",
-    "ProcurementProject.BudgetAmount.TaxExclusiveAmount": "TaxExclusiveAmount",
     "TenderingProcess.ProcedureCode": "ProcessCode",
     "TenderingProcess.TenderSubmissionDeadlinePeriod.EndDate": "ProcessEndDate",
 }
@@ -386,9 +383,12 @@ def map_codes(
     Replace codes with their corresponding names from reference tables.
 
     This function reads the raw open tenders parquet file and replaces various codes
-    (ProcessCode, ProjectTypeCode, CPVCode, CPVLotCode, ProjectSubTypeCode) with their
+    (ProjectTypeCode, ProjectSubTypeCode, CPVCode, ProcessCode) with their
     human-readable names using reference tables. It handles both simple mappings and
     conditional mappings for project subtypes based on the project type.
+
+    For CPV codes, the function handles multiple codes separated by underscores and
+    converts them to lists of human-readable names.
 
     Args:
         data_path (str, optional): Path to directory containing parquet files.
@@ -427,7 +427,6 @@ def map_codes(
         ("ProcessCode", "TenderingProcessCode"),
         ("ProjectTypeCode", "ContractCode"),
         ("CPVCode", "CPV2008"),
-        ("CPVLotCode", "CPV2008"),
     ]
 
     # Create all mapping dicts
@@ -443,8 +442,8 @@ def map_codes(
     # Read open tenders data
     df = pl.read_parquet(f"{data_path}/{raw_name}.parquet")
 
-    # Map simple columns
-    for col in ["ProcessCode", "ProjectTypeCode", "CPVCode", "CPVLotCode"]:
+    # Map simple columns (excluding CPVCode which needs special handling)
+    for col in ["ProcessCode", "ProjectTypeCode"]:
         df = df.with_columns(
             [
                 pl.col(col)
@@ -452,6 +451,29 @@ def map_codes(
                 .alias(col)
             ]
         )
+
+    # Special handling for CPV codes that can contain multiple codes separated by underscores
+    def map_cpv_codes(cpv_value, cpv_map):
+        if not cpv_value or cpv_value == "":
+            return []
+
+        # Split by underscore to handle multiple codes
+        codes = cpv_value.split("_")
+        # Map each code to its human-readable name
+        mapped_names = [cpv_map.get(code, code) for code in codes if code.strip()]
+        return mapped_names
+
+    # Map CPV codes to lists of human-readable names
+    df = df.with_columns(
+        [
+            pl.col("CPVCode")
+            .map_elements(
+                lambda x, m=maps["CPVCode"]: map_cpv_codes(x, m),
+                return_dtype=pl.List(pl.Utf8),
+            )
+            .alias("CPVCode")
+        ]
+    )
 
     # Conditional mapping for ProjectSubTypeCode
     def map_project_subtype(row):
