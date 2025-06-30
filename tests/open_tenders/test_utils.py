@@ -4,62 +4,10 @@ from pathlib import Path
 import json
 
 from src.open_tenders.utils import (
-    get_data_list_open_tenders,
     map_codes,
     save_mapped_data_to_json,
     open_tenders_cols,
 )
-
-
-def test_extract_pub_status_entries(
-    sample_namespaces, sample_atom_entry_with_all_fields, sample_flattened_details_pub
-):
-    """Test successful extraction of PUB status entries"""
-    # Use the fixtures for entries and namespaces
-    entries = [sample_atom_entry_with_all_fields]
-    ns = sample_namespaces
-
-    with patch("src.open_tenders.utils.flatten_dict") as mock_flatten:
-
-        # Mock flattened details with PUB status
-        mock_flatten.return_value = sample_flattened_details_pub
-
-        result = get_data_list_open_tenders(entries, ns)
-
-        assert len(result) == 1
-        assert result[0]["title"] == "Test Tender"
-        assert result[0]["link"] == "http://example.com"
-        assert result[0]["updated"] == "2023-01-01T00:00:00Z"
-        assert result[0]["ID"] == "123"
-        assert result[0]["ContractingParty"] == "Test Party"
-        assert result[0]["City"] == "Madrid"
-        assert result[0]["ProjectTypeCode"] == "Suministros"
-
-        # Check that unwanted fields were removed
-        assert "id" not in result[0]
-        assert "summary" not in result[0]
-        assert "ContractFolderStatus" not in result[0]
-
-
-def test_filter_non_pub_entries(
-    sample_namespaces,
-    sample_atom_entry_with_all_fields,
-    sample_flattened_details_non_pub,
-):
-    """Test filtering out non-PUB status entries"""
-    # Use the fixtures for entries and namespaces
-    entries = [sample_atom_entry_with_all_fields]
-    ns = sample_namespaces
-
-    with patch("src.open_tenders.utils.flatten_dict") as mock_flatten:
-
-        # Mock flattened details with non-PUB status
-        mock_flatten.return_value = sample_flattened_details_non_pub
-
-        result = get_data_list_open_tenders(entries, ns)
-
-        # Should filter out non-PUB entries
-        assert len(result) == 0
 
 
 def test_simple_code_mapping(

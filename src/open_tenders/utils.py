@@ -14,7 +14,7 @@ from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
 import os
 import json
-from datetime import datetime
+from datetime import datetime, date
 
 """
 Open Tenders Data Processing Module
@@ -141,23 +141,6 @@ def get_data_list_open_tenders(entries: list, ns: dict) -> list:
             recursive_field_dict(details, details_dict)
             flat_details = flatten_dict(details_dict)
 
-        status = flat_details.get("ContractFolderStatusCode")
-        end_date = flat_details.get(
-            "TenderingProcess.TenderSubmissionDeadlinePeriod.EndDate"
-        )
-
-        # First exclude non-PUB status
-        if status != "PUB":
-            continue
-
-        # Then for PUB status, check end date
-        if (
-            end_date is None
-            or datetime.strptime(end_date, "%Y-%m-%d").date() <= datetime.now().date()
-        ):
-            continue
-
-        else:
             filtered_details = {
                 v: flat_details[k]
                 for k, v in open_tenders_cols.items()
@@ -319,14 +302,31 @@ def get_parquet_open_tenders(paths: list, data_path: str, name="open_tenders") -
 
     final_df_no_dups = remove_duplicates(final_df, "link")
 
-    final_df_no_dups.write_parquet(parquet_path, compression="snappy")
+    def remove_closed_and_expired(df):
+        """
+        Remove closed tenders and expired ones from the dataframe.
+
+        Args:
+            df (pl.DataFrame): Input dataframe containing tender data
+
+        Returns:
+            pl.DataFrame: Filtered dataframe with only open and active tenders
+        """
+        today = date.today()
+        return df.filter(pl.col("Status") == "PUB").filter(
+            pl.col("ProcessEndDate").str.to_date() > today
+        )
+
+    open_tenders_df = remove_closed_and_expired(final_df_no_dups)
+
+    open_tenders_df.write_parquet(parquet_path, compression="snappy")
 
     # Cleanup temporary files
     for f in parquet_files:
         os.remove(f)
     os.rmdir(tmp_dir)
 
-    return {"parquet_path": parquet_path, "df_shape": final_df_no_dups.shape}
+    return {"parquet_path": parquet_path, "df_shape": open_tenders_df.shape}
 
 
 def open_tenders_parquet(source_url: str, data_path: str, name="open_tenders_raw"):
