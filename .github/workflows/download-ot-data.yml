@@ -1,4 +1,4 @@
-name: Download SPPD Open Tenders Data (Run Date: ${{ github.event.schedule.day }})
+name: Download SPPD Open Tenders Data
 
 on:
   workflow_dispatch: # Manual trigger
