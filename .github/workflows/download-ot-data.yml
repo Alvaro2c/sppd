@@ -1,0 +1,223 @@
+name: Download SPPD Open Tenders Data (Run Date: ${{ github.event.schedule.day }})
+
+on:
+  workflow_dispatch: # Manual trigger
+  schedule:
+    # Run every day at 9:00 AM CET (8:00 AM UTC)
+    - cron: '0 8 * * *'
+
+env:
+  PYTHON_VERSION: '3.10.6'
+  DATA_PATH: 'data/open_tenders'
+
+jobs:
+  download-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45  # Longer timeout for downloads
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+      timeout-minutes: 10
+
+    - name: Create data directory
+      run: |
+        mkdir -p ${{ env.DATA_PATH }}/raw
+
+    - name: Get current month and recent data info
+      run: |
+        # Get current month in YYYYMM format
+        CURRENT_MONTH=$(date -u +"%Y%m")
+        echo "Current month: $CURRENT_MONTH"
+        echo "CURRENT_MONTH=$CURRENT_MONTH" >> $GITHUB_ENV
+        
+        # Get recent data info from Python
+        RECENT_DATA_JSON=$(python -c "
+from src.open_tenders.utils import get_recent_data_json
+import json
+
+source_url = 'https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx'
+recent_data = get_recent_data_json(source_url)
+print(recent_data)
+")
+        
+        echo "Recent data JSON: $RECENT_DATA_JSON"
+        echo "RECENT_DATA_JSON='$RECENT_DATA_JSON'" >> $GITHUB_ENV
+        
+        # Parse the JSON to get available months
+        AVAILABLE_MONTHS=$(echo "$RECENT_DATA_JSON" | python -c "
+import sys, json
+data = json.load(sys.stdin)
+print(' '.join(data.keys()))
+")
+        
+        echo "Available months: $AVAILABLE_MONTHS"
+        echo "AVAILABLE_MONTHS='$AVAILABLE_MONTHS'" >> $GITHUB_ENV
+      timeout-minutes: 5
+
+    - name: Download previous artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: open-tenders-raw-data-*
+        path: ${{ env.DATA_PATH }}/
+        pattern: latest
+
+    - name: Check existing files and determine what to download
+      run: |
+        # Check if we have any existing artifacts
+        if [ -d "${{ env.DATA_PATH }}/raw" ] && [ "$(ls -A ${{ env.DATA_PATH }}/raw)" ]; then
+          echo "✅ Existing artifacts found"
+          EXISTING_MONTHS=$(ls -1 ${{ env.DATA_PATH }}/raw/ | tr '\n' ' ')
+          echo "Existing months: $EXISTING_MONTHS"
+          echo "EXISTING_MONTHS='$EXISTING_MONTHS'" >> $GITHUB_ENV
+          
+          # Check if current month exists in artifacts
+          if [[ " $EXISTING_MONTHS " =~ " $CURRENT_MONTH " ]]; then
+            echo "✅ Current month ($CURRENT_MONTH) already exists in artifacts"
+            echo "Will only download current month data (in case it was updated)"
+            DOWNLOAD_MONTHS="$CURRENT_MONTH"
+            echo "DOWNLOAD_MONTHS='$DOWNLOAD_MONTHS'" >> $GITHUB_ENV
+          else
+            echo "❌ Current month ($CURRENT_MONTH) not found in artifacts"
+            echo "Will download all available months"
+            DOWNLOAD_MONTHS="$AVAILABLE_MONTHS"
+            echo "DOWNLOAD_MONTHS='$DOWNLOAD_MONTHS'" >> $GITHUB_ENV
+          fi
+        else
+          echo "❌ No existing artifacts found"
+          echo "Will download all available months"
+          DOWNLOAD_MONTHS="$AVAILABLE_MONTHS"
+          echo "DOWNLOAD_MONTHS='$DOWNLOAD_MONTHS'" >> $GITHUB_ENV
+        fi
+        
+        echo "Months to download: $DOWNLOAD_MONTHS"
+      timeout-minutes: 2
+
+    - name: Download required data
+      run: |
+        # Call the download function from utils
+        python -c "
+from src.open_tenders.utils import download_recent_data_ot
+import json
+
+# Parse download months from environment variable
+download_months = '$DOWNLOAD_MONTHS'.split()
+
+# Call the download function
+results = download_recent_data_ot(
+    recent_data_json='$RECENT_DATA_JSON',
+    download_months=download_months,
+    data_path='${{ env.DATA_PATH }}/raw'
+)
+
+# Print results summary
+print('\\nDownload Results Summary:')
+for month, result in results.items():
+    if result['status'] == 'success':
+        print(f'✅ {month}: {result[\"files_extracted\"]} files extracted')
+    elif result['status'] == 'error':
+        print(f'❌ {month}: Error - {result[\"error\"]}')
+    else:
+        print(f'⚠️ {month}: {result[\"error\"]}')
+
+# Check if all downloads were successful
+failed_downloads = [month for month, result in results.items() if result['status'] != 'success']
+if failed_downloads:
+    print(f'\\n❌ Failed downloads: {failed_downloads}')
+    exit(1)
+else:
+    print('\\n✅ All downloads completed successfully')
+"
+      timeout-minutes: 35
+      env:
+        PYTHONUNBUFFERED: 1
+
+    - name: Verify downloaded data
+      run: |
+        echo "Verifying downloaded data..."
+        
+        # Check each month that should be present
+        for month in $AVAILABLE_MONTHS; do
+          if [ -d "${{ env.DATA_PATH }}/raw/$month" ]; then
+            FILE_COUNT=$(find "${{ env.DATA_PATH }}/raw/$month" -name "*.xml" | wc -l)
+            echo "✅ Month $month: $FILE_COUNT XML files"
+            
+            if [ "$FILE_COUNT" -eq 0 ]; then
+              echo "⚠️ Warning: No XML files found in month $month"
+            fi
+          else
+            echo "❌ Error: Directory for month $month not found"
+            exit 1
+          fi
+        done
+        
+        echo "✅ Data verification completed"
+        echo "Final structure:"
+        ls -la ${{ env.DATA_PATH }}/
+        ls -la ${{ env.DATA_PATH }}/raw/
+      timeout-minutes: 5
+
+    - name: Create download metadata
+      run: |
+        # Create metadata about this download
+        cat > ${{ env.DATA_PATH }}/download_metadata.json << EOF
+{
+  "download_timestamp": "$(date -u -Iseconds)",
+  "source_url": "https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx",
+  "data_path": "${{ env.DATA_PATH }}",
+  "available_months": [$AVAILABLE_MONTHS],
+  "downloaded_months": [$DOWNLOAD_MONTHS],
+  "current_month": "$CURRENT_MONTH",
+  "total_files_downloaded": $(echo $DOWNLOAD_MONTHS | wc -w),
+  "status": "completed"
+}
+EOF
+        
+        echo "✅ Download metadata created"
+        cat ${{ env.DATA_PATH }}/download_metadata.json
+      timeout-minutes: 2
+
+    - name: Upload downloaded data as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: open-tenders-raw-data-${{ github.run_id }}
+        path: |
+          ${{ env.DATA_PATH }}/raw/
+          ${{ env.DATA_PATH }}/download_metadata.json
+        retention-days: 30  # Keep artifacts longer for processing
+
+    - name: Notify completion
+      if: success()
+      run: |
+        echo "✅ Open tenders data download completed successfully"
+        echo "📊 Downloaded months: $DOWNLOAD_MONTHS"
+        echo "📁 Raw data available in ${{ env.DATA_PATH }}/raw/"
+        echo "📋 Metadata saved to ${{ env.DATA_PATH }}/download_metadata.json"
+        echo "🕒 Completed at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+    - name: Notify failure
+      if: failure()
+      run: |
+        echo "❌ Open tenders data download failed"
+        echo "🕒 Failed at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+        echo "📋 Check the logs above for error details" 
