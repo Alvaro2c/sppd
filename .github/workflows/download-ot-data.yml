@@ -68,43 +68,54 @@ jobs:
           echo "AVAILABLE_MONTHS='$AVAILABLE_MONTHS'" >> $GITHUB_ENV
         timeout-minutes: 5
 
-      - name: Download previous artifacts
+      - name: Download previous artifacts (if available)
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: open-tenders-raw-data-*
           path: ${{ env.DATA_PATH }}/
           pattern: latest
 
-      - name: Check existing files and determine what to download
+      - name: Check artifacts and determine download strategy
         run: |
-          # Check if we have any existing artifacts
+          # Check if artifacts were successfully downloaded
+          echo "Checking for existing artifacts..."
+          
           if [ -d "${{ env.DATA_PATH }}/raw" ] && [ "$(ls -A ${{ env.DATA_PATH }}/raw)" ]; then
             echo "✅ Existing artifacts found"
+            
+            # Get existing months from artifacts
             EXISTING_MONTHS=$(ls -1 ${{ env.DATA_PATH }}/raw/ | tr '\n' ' ')
-            echo "Existing months: $EXISTING_MONTHS"
-            echo "EXISTING_MONTHS='$EXISTING_MONTHS'" >> $GITHUB_ENV
+            echo "Existing months in artifacts: $EXISTING_MONTHS"
+            
+            # Parse JSON to get available filenames
+            AVAILABLE_FILENAMES=$(echo "$RECENT_DATA_JSON" | python -c "
+            import sys, json
+            data = json.load(sys.stdin)
+            filenames = [data[month]['filename'] for month in data.keys()]
+            print(' '.join(filenames))
+            ")
+            echo "Available filenames from JSON: $AVAILABLE_FILENAMES"
             
             # Check if current month exists in artifacts
             if [[ " $EXISTING_MONTHS " =~ " $CURRENT_MONTH " ]]; then
               echo "✅ Current month ($CURRENT_MONTH) already exists in artifacts"
               echo "Will only download current month data (in case it was updated)"
               DOWNLOAD_MONTHS="$CURRENT_MONTH"
-              echo "DOWNLOAD_MONTHS='$DOWNLOAD_MONTHS'" >> $GITHUB_ENV
             else
               echo "❌ Current month ($CURRENT_MONTH) not found in artifacts"
               echo "Will download all available months"
               DOWNLOAD_MONTHS="$AVAILABLE_MONTHS"
-              echo "DOWNLOAD_MONTHS='$DOWNLOAD_MONTHS'" >> $GITHUB_ENV
             fi
           else
-            echo "❌ No existing artifacts found"
+            echo "❌ No existing artifacts found or artifacts are empty"
             echo "Will download all available months"
             DOWNLOAD_MONTHS="$AVAILABLE_MONTHS"
-            echo "DOWNLOAD_MONTHS='$DOWNLOAD_MONTHS'" >> $GITHUB_ENV
           fi
           
           echo "Months to download: $DOWNLOAD_MONTHS"
-        timeout-minutes: 2
+          echo "DOWNLOAD_MONTHS='$DOWNLOAD_MONTHS'" >> $GITHUB_ENV
+        timeout-minutes: 5
 
       - name: Download required data
         run: |
