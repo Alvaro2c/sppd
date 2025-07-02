@@ -75,7 +75,7 @@ jobs:
     - name: Run Open Tenders Pipeline
       run: |
         python src/open_tenders/main.py
-      timeout-minutes: 15
+      timeout-minutes: 30
       env:
         PYTHONUNBUFFERED: 1  # Ensure real-time output
 
