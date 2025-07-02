@@ -156,14 +156,6 @@ jobs:
         fi
       timeout-minutes: 10
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      if: always()  # Upload even if previous steps failed
-      with:
-        name: open-tenders-data-${{ github.run_id }}
-        path: ${{ env.DATA_PATH }}/
-        retention-days: 7
-
     - name: Notify completion
       if: success()
       run: |
