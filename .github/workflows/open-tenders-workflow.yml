@@ -14,7 +14,7 @@ env:
 jobs:
   process-and-push:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # Prevent hanging jobs
+    timeout-minutes: 45  # Prevent hanging jobs
     
     steps:
     - name: Checkout Repository
