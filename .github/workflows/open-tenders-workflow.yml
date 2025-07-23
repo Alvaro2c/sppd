@@ -15,7 +15,7 @@ jobs:
   process-and-push:
     runs-on: ubuntu-latest
     timeout-minutes: 45  # Prevent hanging jobs
-    
+
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
     - name: Verify data source URLs
       run: |
         echo "Verifying data source URLs..."
-        
+
         # Test the main open tenders URL
         OPEN_TENDERS_URL="https://www.hacienda.gob.es/es-ES/GobiernoAbierto/Datos%20Abiertos/Paginas/LicitacionesContratante.aspx"
         echo "Testing open tenders URL: $OPEN_TENDERS_URL"
@@ -58,7 +58,7 @@ jobs:
           echo "❌ Open tenders URL is not accessible"
           exit 1
         fi
-        
+
         # Test the codice URL
         CODICE_URL="https://contrataciondelestado.es/codice/cl/"
         echo "Testing codice URL: $CODICE_URL"
@@ -68,14 +68,14 @@ jobs:
           echo "❌ Codice URL is not accessible"
           exit 1
         fi
-        
+
         echo "✅ All data source URLs are accessible"
       timeout-minutes: 5
 
     - name: Run Open Tenders Pipeline
       run: |
         python src/open_tenders/main.py
-      timeout-minutes: 30
+      timeout-minutes: 40
       env:
         PYTHONUNBUFFERED: 1  # Ensure real-time output
 
@@ -86,14 +86,14 @@ jobs:
           echo "Error: JSON output file not found"
           exit 1
         fi
-        
+
         # Check file size to ensure it's not empty
         FILE_SIZE=$(stat -c%s "${{ env.DATA_PATH }}/open_tenders.json")
         if [ "$FILE_SIZE" -eq 0 ]; then
           echo "Error: JSON output file is empty"
           exit 1
         fi
-        
+
         echo "JSON output file created successfully (size: ${FILE_SIZE} bytes)"
         ls -la ${{ env.DATA_PATH }}/
       timeout-minutes: 2
@@ -108,35 +108,35 @@ jobs:
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git config --global user.name "GitHub Actions Bot"
         git config --global init.defaultBranch main
-        
+
         # Clone the target repository with error handling
         if ! git clone https://x-access-token:${PAT}@github.com/${TARGET_REPO}.git target-repo; then
           echo "❌ Failed to clone target repository"
           exit 1
         fi
-        
+
         # Create timestamp for the commit
         TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-        
+
         # Copy the JSON output to the target repository
         # Create the data directory if it doesn't exist
         mkdir -p target-repo/data
-        
+
         # Copy with error checking
         if ! cp ${{ env.DATA_PATH }}/open_tenders.json target-repo/data/open_tenders.json; then
           echo "❌ Failed to copy JSON file"
           exit 1
         fi
-        
+
         # Commit and push to the target repository with proper error handling
         cd target-repo
-        
+
         # Check if we're on the correct branch
         if ! git checkout ${TARGET_BRANCH}; then
           echo "❌ Failed to checkout branch ${TARGET_BRANCH}"
           exit 1
         fi
-        
+
         # Check if there are changes to commit
         if git diff --quiet; then
           echo "ℹ️ No changes to commit"
@@ -146,12 +146,12 @@ jobs:
             echo "❌ Failed to commit changes"
             exit 1
           fi
-          
+
           if ! git push origin ${TARGET_BRANCH}; then
             echo "❌ Failed to push changes"
             exit 1
           fi
-          
+
           echo "✅ Successfully pushed data to target repository"
         fi
       timeout-minutes: 10
@@ -169,4 +169,4 @@ jobs:
       run: |
         echo "❌ Open tenders pipeline failed"
         echo "🕒 Failed at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-        echo "📋 Check the logs above for error details" 
+        echo "📋 Check the logs above for error details"
