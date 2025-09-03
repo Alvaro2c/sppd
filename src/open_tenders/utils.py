@@ -99,7 +99,7 @@ def get_recent_data_json(source_url: str) -> str:
             reverse=True,
         )[:3]
     }
-    
+
     # Convert source_dict_recent to JSON
     source_dict_json = json.dumps(source_dict_recent)
 
@@ -352,7 +352,7 @@ def get_parquet_open_tenders(paths: list, data_path: str, name="open_tenders") -
         """
         today = date.today()
         return df.filter(pl.col("Status") == "PUB").filter(
-            pl.col("ProcessEndDate").str.to_date() > today
+            pl.col("ProcessEndDate").str.strptime(pl.Date, format="%Y-%m-%d", strict=False) > today
         )
 
     open_tenders_df = remove_closed_and_expired(final_df_no_dups)
@@ -654,18 +654,18 @@ def save_mapped_data_to_json(
 def download_recent_data_ot(recent_data_json: str, download_months: list, data_path: str):
     """
     Download specific months of open tenders data based on JSON metadata.
-    
+
     This function parses the JSON data structure containing month information
     and downloads/extracts the ZIP files for the specified months.
-    
+
     Args:
         recent_data_json (str): JSON string containing month data with filename and link
         download_months (list): List of month codes (YYYYMM) to download
         data_path (str): The base path where data should be stored
-    
+
     Returns:
         dict: Dictionary with download results for each month
-    
+
     Example:
         >>> json_data = '{"202412": {"filename": "3_202412.zip", "link": "https://..."}}'
         >>> result = download_recent_data_ot(json_data, ["202412"], "data/open_tenders")
@@ -675,30 +675,30 @@ def download_recent_data_ot(recent_data_json: str, download_months: list, data_p
     import requests
     import zipfile
     from tqdm import tqdm
-    
+
     data = json.loads(recent_data_json)
     results = {}
-    
+
     for month in download_months:
         if month in data:
             month_info = data[month]
             filename = month_info['filename']
             link = month_info['link']
-            
+
             print(f'Downloading {month}: {filename}')
-            
+
             try:
                 # Create directory for this month
                 month_dir = os.path.join(data_path, "raw", month)
                 os.makedirs(month_dir, exist_ok=True)
-                
+
                 # Download the file
                 response = requests.get(link, stream=True)
                 response.raise_for_status()
-                
+
                 # Get total file size for progress bar
                 total_size = int(response.headers.get('content-length', 0))
-                
+
                 # Download with progress bar
                 zip_path = os.path.join(month_dir, filename)
                 with open(zip_path, 'wb') as f:
@@ -707,25 +707,25 @@ def download_recent_data_ot(recent_data_json: str, download_months: list, data_p
                             if chunk:
                                 f.write(chunk)
                                 pbar.update(len(chunk))
-                
+
                 # Extract the ZIP file
                 print(f'Extracting {month}: {filename}')
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                     zip_ref.extractall(month_dir)
-                
+
                 # Remove the ZIP file after extraction
                 os.remove(zip_path)
-                
+
                 # Count extracted files
                 xml_files = [f for f in os.listdir(month_dir) if f.endswith('.xml')]
                 print(f'✓ {month}: Extracted {len(xml_files)} XML files')
-                
+
                 results[month] = {
                     'status': 'success',
                     'files_extracted': len(xml_files),
                     'filename': filename
                 }
-                
+
             except Exception as e:
                 print(f'❌ Error downloading {month}: {str(e)}')
                 results[month] = {
@@ -739,5 +739,5 @@ def download_recent_data_ot(recent_data_json: str, download_months: list, data_p
                 'status': 'not_found',
                 'error': 'Month not found in available data'
             }
-    
+
     return results
