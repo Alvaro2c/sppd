@@ -67,6 +67,7 @@ open_tenders_cols = {
     "TenderingProcess.TenderSubmissionDeadlinePeriod.EndDate": "ProcessEndDate",
 }
 
+
 def get_recent_data_json(source_url: str) -> str:
     """
     Download the most recent 3 months of open tenders data from the source URL.

@@ -21,7 +21,6 @@ from unittest.mock import patch, mock_open, ANY
 from bs4 import BeautifulSoup
 import polars as pl
 import os
-from datetime import datetime, timezone
 
 
 def test_get_soup(sample_url, sample_html_content):
