@@ -484,7 +484,13 @@ def remove_duplicates(df: pl.DataFrame, strategy: str) -> pl.DataFrame:
 
     # Convert 'updated' column to datetime if possible (in case already transformed to datetime)
     try:
-        df = df.with_columns(pl.col("updated").str.strptime(pl.Datetime, strict=False))
+        df = df.with_columns(
+            pl.col("updated").str.strptime(
+                pl.Datetime,
+                format="%Y-%m-%dT%H:%M:%S%.fZ",  # RFC3339/ISO8601 format
+                strict=False
+            )
+        )
     # Exception for updated column being already a datetime
     except SchemaError:
         pass

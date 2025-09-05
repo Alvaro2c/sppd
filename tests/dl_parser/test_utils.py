@@ -170,9 +170,15 @@ def test_remove_duplicates(sample_df_with_duplicates):
                 "id": "1",
                 "link": "http://example.com",
                 "title": "Example Entry",
-                "updated": datetime(2023, 1, 2, tzinfo=timezone.utc),
+                "updated": "2023-01-02 00:00:00"
             }
         ]
+    ).with_columns(
+        pl.col("updated").str.strptime(
+            pl.Datetime,
+            format="%Y-%m-%d %H:%M:%S",
+            strict=False
+        )
     )
 
     assert no_dups_df.equals(expected_df)

@@ -29,7 +29,11 @@ def test_get_parquet_base_table(tmp_path, sample_df_with_duplicates):
     result_df = pl.read_parquet(output_file)
     expected_df = df1.slice(1, 1)
     expected_df = expected_df.with_columns(
-        pl.col("updated").str.strptime(pl.Datetime, strict=False)
+        pl.col("updated").str.strptime(
+                pl.Datetime,
+                format="%Y-%m-%dT%H:%M:%S%.fZ",  # RFC3339/ISO8601 format
+                strict=False
+            )
     )
     assert len(result_df) == len(expected_df)
     assert list(result_df.columns) == list(expected_df.columns)
